@@ -1,0 +1,175 @@
+<!-- ============================================================ -->
+<!-- NEXUS DASHBOARD — SMS & CHIAMATE SECTION                    -->
+<!-- Inserire all'interno del body della dashboard principale    -->
+<!-- ============================================================ -->
+
+<!-- // === SMS PAGE HTML === -->
+<section id="page-sms" class="page-section" style="display:none;">
+
+  <!-- Header -->
+  <div class="sms-header">
+    <div class="sms-title-row">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#00d4ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <h2 class="sms-title">SMS &amp; Chiamate</h2>
+    </div>
+
+    <!-- Badge contatori -->
+    <div class="sms-badges" id="smsBadges">
+      <div class="sms-badge" id="badge-total">
+        <span class="badge-count" id="cnt-total">0</span>
+        <span class="badge-label">Totale</span>
+      </div>
+      <div class="sms-badge badge-in" id="badge-in">
+        <span class="badge-count" id="cnt-in">0</span>
+        <span class="badge-label">Entrata</span>
+      </div>
+      <div class="sms-badge badge-out" id="badge-out">
+        <span class="badge-count" id="cnt-out">0</span>
+        <span class="badge-label">Uscita</span>
+      </div>
+      <div class="sms-badge badge-missed" id="badge-missed">
+        <span class="badge-count" id="cnt-missed">0</span>
+        <span class="badge-label">Persi</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab switcher -->
+  <div class="sms-tabs" id="smsTabs">
+    <button class="sms-tab active" data-tab="sms" onclick="switchSmsTab('sms')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      SMS
+    </button>
+    <button class="sms-tab" data-tab="calls" onclick="switchSmsTab('calls')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.14 6.14l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+      </svg>
+      Chiamate
+    </button>
+    <button class="sms-tab" data-tab="contacts" onclick="switchSmsTab('contacts')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+      Contatti
+    </button>
+  </div>
+
+  <!-- Filtri -->
+  <div class="sms-filters" id="smsFilters">
+    <div class="filter-search-wrap">
+      <svg class="filter-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8892a4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="smsSearchInput" class="filter-input filter-search" placeholder="Cerca nome o numero..." oninput="onSmsFilterChange()">
+    </div>
+    <select id="smsTypeFilter" class="filter-input filter-select" onchange="onSmsFilterChange()">
+      <option value="all">Tutti i tipi</option>
+      <option value="in">Entrata</option>
+      <option value="out">Uscita</option>
+      <option value="missed">Persi</option>
+    </select>
+    <div class="filter-date-wrap">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#8892a4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+      <input type="date" id="smsDateFrom" class="filter-input filter-date" onchange="onSmsFilterChange()">
+      <span class="date-separator">—</span>
+      <input type="date" id="smsDateTo" class="filter-input filter-date" onchange="onSmsFilterChange()">
+    </div>
+    <button class="filter-reset-btn" onclick="resetSmsFilters()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.96"/>
+      </svg>
+      Reset
+    </button>
+  </div>
+
+  <!-- Tab content: SMS -->
+  <div id="tab-sms" class="sms-tab-content active">
+    <div class="sms-table-wrap">
+      <table class="sms-table" id="smsTable">
+        <thead>
+          <tr>
+            <th class="col-date">Data</th>
+            <th class="col-type">Tipo</th>
+            <th class="col-contact">Contatto / Numero</th>
+            <th class="col-preview">Anteprima</th>
+          </tr>
+        </thead>
+        <tbody id="smsTableBody">
+          <tr class="sms-empty-row">
+            <td colspan="4">
+              <div class="sms-empty-state" id="smsEmptyState">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2a3550" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <p>Nessun SMS disponibile</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sms-pagination" id="smsPagination"></div>
+  </div>
+
+  <!-- Tab content: Chiamate -->
+  <div id="tab-calls" class="sms-tab-content">
+    <div class="sms-table-wrap">
+      <table class="sms-table" id="callsTable">
+        <thead>
+          <tr>
+            <th class="col-date">Data</th>
+            <th class="col-type">Tipo</th>
+            <th class="col-contact">Contatto / Numero</th>
+            <th class="col-duration">Durata</th>
+          </tr>
+        </thead>
+        <tbody id="callsTableBody">
+          <tr class="sms-empty-row">
+            <td colspan="4">
+              <div class="sms-empty-state" id="callsEmptyState">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2a3550" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.14 6.14l.92-.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                </svg>
+                <p>Nessuna chiamata disponibile</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="sms-pagination" id="callsPagination"></div>
+  </div>
+
+  <!-- Tab content: Contatti -->
+  <div id="tab-contacts" class="sms-tab-content">
+    <div class="contacts-grid" id="contactsGrid">
+      <div class="sms-empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2a3550" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <p>Nessun contatto disponibile</p>
+      </div>
+    </div>
+    <div class="sms-pagination" id="contactsPagination"></div>
+  </div>
+
+  <!-- Loader overlay -->
+  <div class="sms-loader" id="smsLoader" style="display:none;">
+    <div class="sms-spinner"></div>
+    <span>Caricamento...</span>
+  </div>
+
+</section>
+<!-- // === END SMS PAGE HTML === -->

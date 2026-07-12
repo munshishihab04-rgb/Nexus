@@ -1,0 +1,446 @@
+/* // === GPS PAGE CSS === */
+
+/* ─── Leaflet CDN imports (added to <head> in main HTML) ─────────────── */
+/* <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /> */
+
+/* ─── Page Section ──────────────────────────────────────────────────── */
+#gps-page {
+  padding: 0 0 32px 0;
+  animation: gpsFadeIn 0.35s ease;
+}
+
+@keyframes gpsFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Header ────────────────────────────────────────────────────────── */
+.gps-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.gps-title-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gps-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e8f4f8;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.gps-title svg {
+  color: #00d4ff;
+  flex-shrink: 0;
+}
+
+/* Status Badge */
+.gps-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.gps-status-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.gps-status-badge.online {
+  background: rgba(0, 212, 255, 0.12);
+  color: #00d4ff;
+  border: 1px solid rgba(0, 212, 255, 0.3);
+}
+.gps-status-badge.online::before {
+  background: #00d4ff;
+  box-shadow: 0 0 6px #00d4ff;
+  animation: gpsPulse 1.6s infinite;
+}
+
+.gps-status-badge.offline {
+  background: rgba(255, 100, 100, 0.1);
+  color: #ff6464;
+  border: 1px solid rgba(255, 100, 100, 0.25);
+}
+.gps-status-badge.offline::before {
+  background: #ff6464;
+}
+
+@keyframes gpsPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ─── Controls Row ──────────────────────────────────────────────────── */
+.gps-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Filter Group */
+.gps-filter-group {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.gps-filter-btn {
+  background: transparent;
+  border: none;
+  color: #8899aa;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  white-space: nowrap;
+}
+
+.gps-filter-btn:hover {
+  background: rgba(0, 212, 255, 0.08);
+  color: #c0e8f0;
+}
+
+.gps-filter-btn.active {
+  background: rgba(0, 212, 255, 0.18);
+  color: #00d4ff;
+  font-weight: 600;
+}
+
+/* Action Buttons */
+.gps-action-group {
+  display: flex;
+  gap: 8px;
+}
+
+.gps-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: #00d4ff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, transform 0.12s;
+}
+
+.gps-action-btn:hover {
+  background: rgba(0, 212, 255, 0.2);
+  border-color: rgba(0, 212, 255, 0.5);
+}
+
+.gps-action-btn:active {
+  transform: scale(0.97);
+}
+
+.gps-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.gps-action-btn svg {
+  flex-shrink: 0;
+}
+
+/* Spinning refresh icon */
+@keyframes gpsSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.gps-refresh-icon-spinning {
+  animation: gpsSpin 0.7s linear infinite;
+}
+
+/* ─── Stats Bar ─────────────────────────────────────────────────────── */
+.gps-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 10px 20px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.gps-stat {
+  display: flex;
+  flex-direction: column;
+  padding: 0 20px;
+  min-width: 110px;
+}
+
+.gps-stat:first-child { padding-left: 0; }
+.gps-stat:last-child  { padding-right: 0; }
+
+.gps-stat-label {
+  font-size: 0.72rem;
+  color: #556677;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.gps-stat-value {
+  font-size: 0.92rem;
+  color: #c0dde8;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.gps-stat-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+
+/* ─── Map Container ─────────────────────────────────────────────────── */
+.gps-map-wrapper {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 212, 255, 0.05);
+}
+
+#gps-map {
+  height: 500px;
+  width: 100%;
+  background: #0a0e1a;
+  border-radius: 12px;
+}
+
+/* Override Leaflet defaults for dark theme */
+.leaflet-container {
+  background: #0a0e1a !important;
+  font-family: inherit;
+}
+
+.leaflet-control-zoom {
+  border: 1px solid rgba(0, 212, 255, 0.2) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+  background: rgba(10, 14, 26, 0.9) !important;
+  color: #00d4ff !important;
+  border-color: rgba(0, 212, 255, 0.15) !important;
+  font-weight: 700 !important;
+  transition: background 0.15s !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(0, 212, 255, 0.15) !important;
+}
+
+.leaflet-bar {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Custom popup style */
+.leaflet-popup-content-wrapper {
+  background: rgba(10, 18, 32, 0.97) !important;
+  border: 1px solid rgba(0, 212, 255, 0.3) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6) !important;
+  color: #c8e8f0 !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 14px 16px !important;
+  min-width: 180px;
+}
+
+.leaflet-popup-tip-container .leaflet-popup-tip {
+  background: rgba(0, 212, 255, 0.25) !important;
+}
+
+.leaflet-popup-close-button {
+  color: #00d4ff !important;
+  font-size: 16px !important;
+  top: 6px !important;
+  right: 8px !important;
+}
+
+.gps-popup-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #00d4ff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gps-popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.83rem;
+  color: #8899aa;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.gps-popup-row:last-child { border-bottom: none; }
+
+.gps-popup-row span:last-child {
+  color: #c8e8f0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.gps-popup-coords {
+  font-size: 0.75rem;
+  color: #556677;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Loading Overlay ───────────────────────────────────────────────── */
+.gps-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 26, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+}
+
+.gps-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  color: #8899aa;
+  font-size: 0.88rem;
+}
+
+.gps-loader-ring {
+  width: 42px;
+  height: 42px;
+  border: 3px solid rgba(0, 212, 255, 0.15);
+  border-top-color: #00d4ff;
+  border-radius: 50%;
+  animation: gpsSpin 0.8s linear infinite;
+}
+
+/* ─── Empty State Overlay ───────────────────────────────────────────── */
+.gps-empty-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 26, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  z-index: 999;
+  border-radius: 12px;
+}
+
+.gps-empty-overlay p {
+  color: #556677;
+  font-size: 0.92rem;
+  margin: 0;
+}
+
+/* ─── Auto-refresh Progress Bar ─────────────────────────────────────── */
+.gps-refresh-bar-wrap {
+  margin-top: 10px;
+}
+
+.gps-refresh-bar-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.77rem;
+  color: #556677;
+  margin-bottom: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gps-refresh-progress-track {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.gps-refresh-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00d4ff, #0af);
+  border-radius: 2px;
+  transition: width 1s linear;
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
+}
+
+/* ─── Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .gps-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .gps-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .gps-stats-bar {
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .gps-stat {
+    padding: 0 10px;
+    min-width: 80px;
+  }
+
+  .gps-stat-divider { display: none; }
+
+  #gps-map { height: 380px; }
+}

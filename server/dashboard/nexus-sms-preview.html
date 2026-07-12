@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus – SMS & Chiamate Preview</title>
+<style>
+/* === BASE DASHBOARD NEXUS === */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0a0e1a;
+  color: #c8d0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  padding: 24px;
+}
+a { color: #00d4ff; }
+button { font-family: inherit; }
+input, select { font-family: inherit; }
+
+/* page-section base */
+.page-section { display: block !important; }
+</style>
+
+<!-- SMS PAGE CSS -->
+<link rel="stylesheet" href="nexus-sms-calls.css">
+</head>
+<body>
+
+<!-- Mock globals -->
+<script>
+  var TOKEN      = 'test-token-preview';
+  var API_URL    = '';
+  var currentDevice = null;
+</script>
+
+<!-- HTML SECTION -->
+<div id="nexus-main" style="max-width:1100px;margin:0 auto;">
+
+  <!-- Inject HTML sezione -->
+  <!-- PLACEHOLDER: incolla qui il contenuto di nexus-sms-calls.html -->
+
+  <!-- Per la preview, lo ricarichiamo via fetch inline -->
+  <div id="sms-section-mount"></div>
+</div>
+
+<!-- LOAD HTML section -->
+<script>
+fetch('nexus-sms-calls.html')
+  .then(r => r.text())
+  .then(html => {
+    document.getElementById('sms-section-mount').innerHTML = html;
+    // Forza display section
+    const sec = document.getElementById('page-sms');
+    if (sec) sec.style.display = 'block';
+    // Load JS after DOM is ready
+    const s = document.createElement('script');
+    s.src = 'nexus-sms-calls.js';
+    document.body.appendChild(s);
+    s.onload = () => injectMockData();
+  });
+
+function injectMockData() {
+  // ── MOCK API intercept ──────────────────────────────────────
+  const origFetch = window.fetch;
+  window.fetch = function(url, opts) {
+    const u = String(url);
+    if (u.includes('/api/sms/')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(generateMockSMS(120)) });
+    }
+    if (u.includes('/api/calllog/')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(generateMockCalls(80)) });
+    }
+    if (u.includes('/api/contacts/')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(generateMockContacts(60)) });
+    }
+    return origFetch(url, opts);
+  };
+
+  // Load mock data
+  if (typeof loadAllSmsData === 'function') {
+    loadAllSmsData('device-preview-001');
+  }
+}
+
+// ── Mock generators ─────────────────────────────────────────
+const NAMES = ['Marco Rossi','Giulia Bianchi','Luca Ferrari','Sofia Russo','Andrea Conti','Elena Mancini','Paolo Gallo','Chiara Romano','Matteo Marino','Laura Greco'];
+const NUMBERS = ['+39 340 123 4567','+39 338 987 6543','+39 347 555 1234','+39 320 777 8888','+39 333 444 5555'];
+const SMS_TEXTS = [
+  'Ciao! Come stai? Ti aspetto per pranzo.',
+  'Riunione confermata per le 15:00. Porta i documenti.',
+  'Grazie mille per l\'aiuto di ieri!',
+  'Puoi richiamarmi appena puoi? Ho una cosa importante da dirti.',
+  'Ok perfetto, ci vediamo domani allora.',
+  'Il pacco è stato consegnato, controlla alla porta.',
+  'Non dimenticate la riunione di domani mattina alle 9.',
+  'Ti mando il file via email, dimmi se arriva.',
+  'Buongiorno! Tutto pronto per stasera?',
+  'Sono in ritardo di circa 10 minuti, aspettami.',
+];
+
+function rnd(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function rndInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+function generateMockSMS(n) {
+  return Array.from({length: n}, (_, i) => ({
+    id: i,
+    name: Math.random() > 0.3 ? rnd(NAMES) : '',
+    number: rnd(NUMBERS),
+    body: rnd(SMS_TEXTS),
+    type: Math.random() > 0.45 ? 'out' : 'in',
+    date: Date.now() - rndInt(0, 30) * 86400000 - rndInt(0, 86400000),
+    read: Math.random() > 0.3,
+  }));
+}
+
+function generateMockCalls(n) {
+  const types = ['in','out','missed'];
+  return Array.from({length: n}, (_, i) => ({
+    id: i,
+    name: Math.random() > 0.35 ? rnd(NAMES) : '',
+    number: rnd(NUMBERS),
+    type: rnd(types),
+    duration: rndInt(0, 3600),
+    date: Date.now() - rndInt(0, 30) * 86400000 - rndInt(0, 86400000),
+    sim: rndInt(1,2),
+  }));
+}
+
+function generateMockContacts(n) {
+  const extras = ['Roberto Vitale','Simone Costa','Alice Fontana','Davide Ricci','Francesca Bruno'];
+  const all = [...NAMES, ...extras];
+  return Array.from({length: n}, (_, i) => ({
+    id: i,
+    name: all[i % all.length] + (i >= all.length ? ` ${Math.floor(i/all.length)+1}` : ''),
+    number: rnd(NUMBERS).replace('567', String(100 + i).slice(-3)),
+  }));
+}
+</script>
+
+</body>
+</html>

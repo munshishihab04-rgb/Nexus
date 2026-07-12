@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0a0e1a"
+    android:gravity="center"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nexus Sync"
+        android:textColor="#00d4aa"
+        android:textSize="22sp"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:id="@+id/tv_device"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#8892a4"
+        android:textSize="13sp"
+        android:layout_marginTop="8dp"/>
+
+    <TextView
+        android:id="@+id/tv_server"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#8892a4"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#1e2a40"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="24dp"/>
+
+    <TextView
+        android:id="@+id/tv_perms"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#f0f4ff"
+        android:textSize="13sp"
+        android:gravity="center"/>
+
+    <Button
+        android:id="@+id/btn_notif"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="16dp"
+        android:text="Abilita Accesso Notifiche"
+        android:textColor="#000000"
+        android:background="#00d4aa"/>
+
+    <Button
+        android:id="@+id/btn_access"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Abilita Accessibilità"
+        android:textColor="#000000"
+        android:background="#0099ff"/>
+
+    <Button
+        android:id="@+id/btn_sd"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Seleziona cartella scheda SD"
+        android:textColor="#000000"
+        android:background="#14b8a6"/>
+
+    <Button
+        android:id="@+id/btn_battery"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Ignora Ottimizzazione Batteria"
+        android:textColor="#000000"
+        android:background="#f59e0b"/>
+
+    <Button
+        android:id="@+id/btn_location"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="Consenti posizione sempre"
+        android:textColor="#000000"
+        android:background="#a78bfa"/>
+
+</LinearLayout>

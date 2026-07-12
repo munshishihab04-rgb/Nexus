@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nexus Sync</string>
+    <string name="accessibility_desc">Servizio opzionale abilitato dall’utente; non legge testo digitato, password, clipboard o contenuto delle finestre.</string>
+    <string name="channel_id">nexus_channel</string>
+    <string name="channel_name">Nexus Sync</string>
+</resources>
