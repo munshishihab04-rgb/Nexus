@@ -1,186 +1,275 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Nexus iCloud Connector</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexus iCloud Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root{
-      --bg:#f5f5f7; --card:#ffffff; --text:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7;
-      --blue:#0071e3; --blue2:#005bb5; --green:#248a3d; --red:#d70015; --amber:#b26a00;
-      --shadow:0 18px 54px rgba(0,0,0,.10); --radius:28px;
-      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,Segoe UI,Roboto,Arial,sans-serif;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .animate-spin-slow { animation: spin-slow 20s linear infinite; }
+    input::placeholder { color: #8e8e93; }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+      -webkit-text-fill-color: white;
+      -webkit-box-shadow: 0 0 0px 1000px #1c1c1e inset;
+      transition: background-color 5000s ease-in-out 0s;
     }
-    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top,#fff 0,#f5f5f7 42%,#ececf1 100%);color:var(--text);min-height:100vh}
-    .page{max-width:1180px;margin:0 auto;padding:28px 18px 44px}
-    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px}
-    .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:-.02em}.cloud{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#fff,#e9f3ff);box-shadow:inset 0 0 0 1px rgba(0,113,227,.14);font-size:20px}.badge{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 11px;background:rgba(255,255,255,.72);backdrop-filter:blur(16px)}
-    .hero{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:22px;align-items:start}.copy{padding:34px 12px 0}.eyebrow{color:var(--blue);font-weight:700;font-size:13px;margin-bottom:12px}.copy h1{font-size:58px;line-height:.96;letter-spacing:-.055em;margin:0 0 18px}.copy p{font-size:19px;line-height:1.45;color:var(--muted);max-width:560px;margin:0 0 20px}.mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:28px;max-width:650px}.mini{background:rgba(255,255,255,.62);border:1px solid rgba(210,210,215,.7);border-radius:18px;padding:14px}.mini strong{display:block;font-size:22px;letter-spacing:-.03em}.mini span{font-size:12px;color:var(--muted)}
-    .card{background:rgba(255,255,255,.88);border:1px solid rgba(210,210,215,.7);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(24px);overflow:hidden}.login-card{padding:28px}.icon-big{width:76px;height:76px;border-radius:22px;display:grid;place-items:center;margin:4px auto 18px;background:linear-gradient(145deg,#fff,#eaf5ff);font-size:42px;box-shadow:inset 0 0 0 1px rgba(0,113,227,.12),0 16px 38px rgba(0,113,227,.12)}.login-card h2{text-align:center;margin:0;font-size:27px;letter-spacing:-.035em}.sub{text-align:center;color:var(--muted);font-size:13px;line-height:1.35;margin:9px 0 22px}.field{position:relative;margin-bottom:12px}.field input{width:100%;height:54px;border:1px solid var(--line);border-radius:14px;padding:18px 14px 6px;font-size:16px;background:#fff;color:var(--text);outline:none;transition:.18s}.field label{position:absolute;left:14px;top:7px;font-size:11px;color:var(--muted);pointer-events:none}.field input:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,113,227,.12)}.row{display:flex;gap:10px}.row>*{flex:1}.btn{width:100%;height:48px;border:0;border-radius:999px;background:var(--blue);color:#fff;font-weight:700;font-size:15px;cursor:pointer;transition:.18s}.btn:hover{background:var(--blue2);transform:translateY(-1px)}.btn.secondary{background:#f2f2f7;color:var(--text)}.btn.secondary:hover{background:#e7e7ee}.btn.ghost{background:transparent;color:var(--blue);border:1px solid rgba(0,113,227,.25)}.hint{font-size:11px;color:var(--muted);line-height:1.35;margin-top:14px}.status{display:flex;gap:8px;align-items:center;justify-content:center;margin:14px 0 0;color:var(--muted);font-size:12px}.dot{width:8px;height:8px;border-radius:50%;background:#bbb}.dot.ok{background:var(--green)}.dot.run{background:var(--blue);box-shadow:0 0 0 5px rgba(0,113,227,.12)}.dot.err{background:var(--red)}
-    .below{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.panel{padding:20px}.panel h3{margin:0 0 12px;font-size:18px;letter-spacing:-.02em}.timeline{display:grid;gap:10px}.step{display:flex;gap:10px;align-items:flex-start}.num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#f2f2f7;color:var(--muted);font-size:12px;font-weight:800;flex:0 0 auto}.step.done .num{background:#e9f8ee;color:var(--green)}.step.active .num{background:#e7f1ff;color:var(--blue)}.step div:last-child{font-size:13px;color:var(--muted);line-height:1.32}.step b{color:var(--text)}.log{height:330px;background:#111318;color:#d8e2f0;border-radius:18px;padding:14px;overflow:auto;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap}.method-list{display:grid;gap:9px;margin:12px 0}.method{border:1px solid var(--line);border-radius:16px;padding:13px;background:#fff;cursor:pointer;text-align:left;font-weight:700}.method small{display:block;color:var(--muted);font-weight:500;margin-top:3px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.28);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;backdrop-filter:blur(12px)}.modal.show{display:flex}.modal-card{max-width:430px;width:100%;background:#fff;border-radius:26px;box-shadow:0 30px 100px rgba(0,0,0,.25);padding:24px}.modal-card h3{margin:0 0 6px;font-size:22px;letter-spacing:-.03em}.modal-card p{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.35}.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(29,29,31,.92);color:#fff;border-radius:999px;padding:12px 16px;font-size:13px;display:none;z-index:60}.toast.show{display:block}.safe{display:flex;gap:9px;align-items:flex-start;background:#f5f5f7;border-radius:16px;padding:12px;margin-top:14px;font-size:12px;color:var(--muted);line-height:1.35}.safe b{color:var(--text)}a{color:var(--blue);text-decoration:none}
-    @media(max-width:920px){.hero,.below{grid-template-columns:1fr}.copy{text-align:center;padding-top:10px}.copy p{margin-left:auto;margin-right:auto}.copy h1{font-size:44px}.mini-grid{margin-left:auto;margin-right:auto}.login-card{order:-1}}@media(max-width:560px){.page{padding:18px 12px 34px}.copy h1{font-size:38px}.mini-grid{grid-template-columns:1fr}.row{flex-direction:column}.topbar{align-items:flex-start}.badge{font-size:11px}.log{height:260px}}
+    .glass-scroll::-webkit-scrollbar{width:8px}.glass-scroll::-webkit-scrollbar-thumb{background:#3a3a3c;border-radius:999px}.glass-scroll::-webkit-scrollbar-track{background:transparent}
   </style>
 </head>
-<body>
-  <div class="page">
-    <div class="topbar">
-      <div class="brand"><div class="cloud">☁︎</div><div>Nexus iCloud Connector<br><span style="font-size:12px;color:var(--muted);font-weight:600">Pagina login separata</span></div></div>
-      <div class="badge" id="accountBadge">Account: controllo…</div>
-    </div>
+<body class="bg-black text-white min-h-screen flex flex-col items-center justify-center px-4 py-8 relative overflow-hidden">
 
-    <section class="hero">
-      <div class="copy">
-        <div class="eyebrow">Accesso autorizzato al tuo iCloud</div>
-        <h1>Login iCloud pulito. Log e dati restano nella dashboard.</h1>
-        <p>Questa pagina serve solo per collegare o rinnovare la sessione iCloud. Dopo la verifica, foto e video appaiono nella dashboard Nexus.</p>
-        <div class="mini-grid">
-          <div class="mini"><strong id="mPhotos">—</strong><span>Foto iCloud</span></div>
-          <div class="mini"><strong id="mVideos">—</strong><span>Video iCloud</span></div>
-          <div class="mini"><strong id="mStatus">—</strong><span>Stato sessione</span></div>
-        </div>
-      </div>
-
-      <div class="card login-card">
-        <div class="icon-big">☁︎</div>
-        <h2>Accedi a iCloud</h2>
-        <div class="sub">Nexus usa la tua autorizzazione per sincronizzare i contenuti. Non è una pagina ufficiale Apple.</div>
-        <div class="field"><label>Apple ID</label><input id="appleId" autocomplete="username" placeholder="nome@icloud.com"></div>
-        <div class="field"><label>Password Apple ID</label><input id="password" type="password" autocomplete="current-password" placeholder="Password"></div>
-        <button class="btn" id="loginBtn" onclick="startLogin()">Continua</button>
-        <div style="height:10px"></div>
-        <button class="btn ghost" onclick="startLoginTrusted()">Ricevi codice su iPhone / dispositivo fidato</button>
-        <div class="safe"><span>🔐</span><span><b>Password non salvata.</b> Viene passata solo al job di login. La sessione autenticata resta nel data dir del server per evitare nuovi codici a ogni sync.</span></div>
-        <div id="twoFABox" style="display:none;margin-top:18px">
-          <div class="field"><label>Codice verifica</label><input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"></div>
-          <div class="row"><button class="btn" onclick="submit2FA()">Verifica codice</button><button class="btn secondary" onclick="refreshMethods()">Metodi</button></div>
-        </div>
-        <div class="status"><span id="dot" class="dot"></span><span id="statusText">Pronto</span></div>
-        <div class="hint">Se Apple mostra numeri SMS selezionabili, aprirò un popup. Se invece appare un codice sull’iPhone, inseriscilo nel campo verifica.</div>
-      </div>
-    </section>
-
-    <section class="below">
-      <div class="card panel">
-        <h3>Flusso login</h3>
-        <div class="timeline">
-          <div class="step" id="s1"><div class="num">1</div><div><b>Credenziali</b><br>Avvia login iCloud autorizzato.</div></div>
-          <div class="step" id="s2"><div class="num">2</div><div><b>Metodo verifica</b><br>Scegli SMS o usa codice su iPhone se disponibile.</div></div>
-          <div class="step" id="s3"><div class="num">3</div><div><b>Codice 2FA</b><br>Inserisci il codice ricevuto.</div></div>
-          <div class="step" id="s4"><div class="num">4</div><div><b>Sessione pronta</b><br>Dashboard può sincronizzare foto/video.</div></div>
-        </div>
-        <div style="height:14px"></div>
-        <div class="row"><button class="btn secondary" onclick="syncAll()">Sync foto/video ora</button><button class="btn secondary" onclick="openDashboard()">Apri dashboard</button></div>
-      </div>
-      <div class="card panel">
-        <h3>Log live</h3>
-        <pre id="log" class="log">Nessun job ancora.</pre>
-      </div>
-    </section>
+  <!-- Ambient background glow -->
+  <div class="absolute inset-0 opacity-20 pointer-events-none">
+    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-blue-900/40 via-purple-900/20 to-transparent blur-3xl"></div>
   </div>
 
-  <div class="modal" id="methodModal">
-    <div class="modal-card">
-      <h3>Scegli dove ricevere il codice</h3>
-      <p>Apple ha restituito più metodi verificabili. Seleziona il numero/dispositivo corretto.</p>
-      <div id="methodList" class="method-list"></div>
-      <button class="btn secondary" onclick="hideMethods()">Chiudi</button>
+  <div class="fixed top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+    <div class="pointer-events-auto rounded-full border border-white/10 bg-white/5 backdrop-blur-xl px-3 py-2 text-[12px] text-[#c7c7cc]" id="accountBadge">Account: controllo…</div>
+    <button onclick="openDashboard()" class="pointer-events-auto rounded-full border border-white/10 bg-white/5 hover:bg-white/10 backdrop-blur-xl px-3 py-2 text-[12px] text-[#c7c7cc] transition-colors">Dashboard</button>
+  </div>
+
+  <div class="relative z-10 w-full max-w-[420px] flex flex-col items-center">
+    <!-- Animated Apple-like Logo Ring -->
+    <div class="mb-8 relative w-28 h-28 flex items-center justify-center">
+      <svg viewBox="0 0 100 100" class="w-full h-full animate-spin-slow" aria-hidden="true">
+        <defs>
+          <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ff6b6b" />
+            <stop offset="25%" style="stop-color:#feca57" />
+            <stop offset="50%" style="stop-color:#48dbfb" />
+            <stop offset="75%" style="stop-color:#ff9ff3" />
+            <stop offset="100%" style="stop-color:#54a0ff" />
+          </linearGradient>
+        </defs>
+        <g id="dots-ring"></g>
+        <path d="M50 38c-3 0-5.5 2-6.5 4.5-1.5 3.5-0.5 7.5 2 10.5 1.5 1.5 3 2.5 4.5 2.5s3-1 4.5-2.5c2.5-3 3.5-7 2-10.5-1-2.5-3.5-4.5-6.5-4.5zM50 36c1 0 2-0.5 2.5-1.5 0.5-1 0-2.5-1-3-1.5-0.5-3 0.5-3.5 2-0.5 1.5 0.5 2.5 2 2.5z" fill="white" transform="translate(0,2) scale(1.3)" style="transform-origin:center"/>
+      </svg>
+    </div>
+
+    <h1 class="text-[28px] font-semibold text-white mb-2 tracking-tight text-center">Accedi con l'Apple Account</h1>
+    <p class="text-center text-[13px] text-[#8e8e93] mb-8 leading-relaxed max-w-[360px]">Interfaccia Nexus iCloud Connector. Serve per autorizzare il sync; non è una pagina ufficiale Apple.</p>
+
+    <div class="w-full space-y-4">
+      <!-- Input Group -->
+      <div class="bg-[#1c1c1e] rounded-xl overflow-hidden border border-[#3a3a3c] focus-within:border-[#0a84ff] transition-colors duration-200">
+        <input id="appleId" type="email" autocomplete="username" placeholder="Email o numero di telefono" class="w-full bg-transparent text-white text-[17px] px-4 py-3.5 outline-none border-b border-[#3a3a3c]">
+        <input id="password" type="password" autocomplete="current-password" placeholder="Password" class="w-full bg-transparent text-white text-[17px] px-4 py-3.5 outline-none">
+      </div>
+
+      <!-- Options -->
+      <div class="flex items-center justify-between px-1">
+        <label class="flex items-center gap-2.5 cursor-pointer">
+          <input id="remember" type="checkbox" class="peer sr-only" checked>
+          <div class="w-5 h-5 rounded border-2 border-[#636366] peer-checked:bg-[#0a84ff] peer-checked:border-[#0a84ff] transition-all flex items-center justify-center">
+            <svg class="w-3 h-3 text-white opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path>
+            </svg>
+          </div>
+          <span class="text-[15px] text-[#e5e5ea]">Mantieni sessione Nexus</span>
+        </label>
+        <a href="https://iforgot.apple.com/" target="_blank" rel="noopener" class="text-[15px] text-[#0a84ff] hover:underline">Password?</a>
+      </div>
+
+      <!-- Buttons -->
+      <div class="space-y-3 pt-2">
+        <button id="loginBtn" onclick="startLogin()" class="w-full bg-[#0a84ff] hover:bg-[#0077ed] text-white text-[17px] font-medium py-3 rounded-xl transition-all active:scale-[0.98]">
+          Accedi
+        </button>
+        <button onclick="startLoginTrusted()" class="w-full bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white text-[17px] font-medium py-3 rounded-xl border border-[#3a3a3c] transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M17.5 14c-.1 0-.2 0-.3.1-.7.4-1.5.6-2.2.6-2.5 0-4.5-2-4.5-4.5s2-4.5 4.5-4.5c.8 0 1.5.2 2.2.6.1.1.2.1.3.1.3 0 .5-.2.5-.5V4.5c0-.3-.2-.5-.4-.6-.9-.4-1.9-.6-2.9-.6C12.5 3.3 9.3 6 8.6 9.7c-.1.5-.2 1-.2 1.5s.1 1 .2 1.5c.7 3.7 3.9 6.4 7.6 6.4 1 0 2-.2 2.9-.6.2-.1.4-.3.4-.6V14c0-.3-.2-.5-.5-.5z"/>
+            <circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          Accedi con l'iPhone
+        </button>
+        <p class="text-center text-[13px] text-[#8e8e93] pt-1">Se Apple invia un codice su iPhone/dispositivo fidato, inseriscilo sotto.</p>
+      </div>
+
+      <!-- 2FA -->
+      <div id="twoFABox" class="hidden space-y-3 pt-2">
+        <div class="bg-[#1c1c1e] rounded-xl overflow-hidden border border-[#3a3a3c] focus-within:border-[#0a84ff] transition-colors duration-200">
+          <input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Codice di verifica" class="w-full bg-transparent text-white text-[22px] tracking-[0.18em] text-center px-4 py-3.5 outline-none">
+        </div>
+        <button onclick="submit2FA()" class="w-full bg-white hover:bg-[#f2f2f7] text-black text-[17px] font-medium py-3 rounded-xl transition-all active:scale-[0.98]">Verifica codice</button>
+        <button onclick="refreshMethods()" class="w-full bg-transparent hover:bg-white/5 text-[#0a84ff] text-[15px] font-medium py-2 rounded-xl transition-all">Scegli numero/metodo 2FA</button>
+      </div>
+
+      <!-- Status cards -->
+      <div class="grid grid-cols-3 gap-2 pt-2">
+        <div class="rounded-xl border border-[#3a3a3c] bg-[#1c1c1e]/80 px-3 py-2 text-center"><div id="mPhotos" class="text-[17px] font-semibold">—</div><div class="text-[11px] text-[#8e8e93]">Foto</div></div>
+        <div class="rounded-xl border border-[#3a3a3c] bg-[#1c1c1e]/80 px-3 py-2 text-center"><div id="mVideos" class="text-[17px] font-semibold">—</div><div class="text-[11px] text-[#8e8e93]">Video</div></div>
+        <div class="rounded-xl border border-[#3a3a3c] bg-[#1c1c1e]/80 px-3 py-2 text-center"><div id="mStatus" class="text-[17px] font-semibold truncate">—</div><div class="text-[11px] text-[#8e8e93]">Stato</div></div>
+      </div>
+
+      <div class="flex items-center justify-center gap-2 text-[13px] text-[#8e8e93] pt-1">
+        <span id="dot" class="w-2 h-2 rounded-full bg-[#636366]"></span>
+        <span id="statusText">Pronto</span>
+      </div>
+
+      <div class="space-y-2 pt-2">
+        <button onclick="syncAll()" class="w-full bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white text-[15px] font-medium py-2.5 rounded-xl border border-[#3a3a3c] transition-all">Sync foto/video ora</button>
+        <button onclick="toggleLog()" class="w-full bg-transparent hover:bg-white/5 text-[#8e8e93] text-[14px] font-medium py-2 rounded-xl transition-all">Mostra/Nascondi log live</button>
+      </div>
+    </div>
+
+    <div id="logPanel" class="hidden w-full mt-4 rounded-xl border border-[#3a3a3c] bg-[#111113]/95 overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-[#2c2c2e]">
+        <div class="text-[14px] font-medium text-[#e5e5ea]">Log live Nexus</div>
+        <button onclick="loadLogs()" class="text-[13px] text-[#0a84ff]">aggiorna</button>
+      </div>
+      <pre id="log" class="glass-scroll max-h-[260px] overflow-auto p-4 text-[11px] leading-relaxed text-[#c7c7cc] whitespace-pre-wrap">Nessun job ancora.</pre>
     </div>
   </div>
-  <div class="toast" id="toast"></div>
 
-<script>
-const qs = new URLSearchParams(location.search);
-let TOKEN = qs.get('token') || localStorage.getItem('nexusToken') || '';
-if (TOKEN) localStorage.setItem('nexusToken', TOKEN);
-let activeJob = null, pollTimer = null, popupShownForJob = null, defaultNotified = false;
-const $ = id => document.getElementById(id);
-function tokenQS(){ return 'token=' + encodeURIComponent(TOKEN); }
-async function api(path, opts={}){
-  const sep = path.includes('?') ? '&' : '?';
-  const res = await fetch(path + sep + tokenQS(), { headers:{'Content-Type':'application/json'}, ...opts });
-  const txt = await res.text(); let data={}; try{ data=txt?JSON.parse(txt):{} }catch{ data={raw:txt} }
-  if(!res.ok) throw new Error(data.error || data.message || ('HTTP '+res.status));
-  return data;
-}
-function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
-function setStatus(kind,msg){ $('dot').className='dot '+(kind||''); $('statusText').textContent=msg; }
-function step(n, cls){ const el=$('s'+n); if(el) el.className='step '+(cls||''); }
-function cleanLog(s){ return String(s||'').replace(/[A-Za-z0-9._%+-]+@icloud\.com/gi, m => m.slice(0,2)+'***@icloud.com'); }
-async function loadStatus(){
-  try{
-    const st=await api('/api/icloud/status');
-    $('accountBadge').textContent = st.account ? `Account: ${st.account}` : 'Account: non collegato';
-    $('mPhotos').textContent = (st.totals?.photos ?? 0).toLocaleString('it-IT');
-    $('mVideos').textContent = (st.totals?.videos ?? 0).toLocaleString('it-IT');
-    $('mStatus').textContent = st.status || 'idle';
-    if(st.configured){ step(4,'done'); }
-    return st;
-  }catch(e){ setStatus('err','Token/API non valida'); $('accountBadge').textContent='Token richiesto'; }
-}
-async function startLogin(){
-  if(!TOKEN) return toast('Apri la pagina con ?token=...');
-  const appleId=$('appleId').value.trim(); const password=$('password').value;
-  if(!appleId || !password) return toast('Inserisci Apple ID e password');
-  step(1,'active'); step(2,''); step(3,''); step(4,''); setStatus('run','Avvio login…'); defaultNotified=false; popupShownForJob=null;
-  try{
-    const r=await api('/api/icloud/login',{method:'POST',body:JSON.stringify({appleId,password,recent:100})});
-    activeJob=r.jobId; step(1,'done'); step(2,'active'); $('twoFABox').style.display='block'; watchJob(activeJob);
-  }catch(e){ setStatus('err',e.message); toast(e.message); }
-}
-function startLoginTrusted(){ toast('Se Apple invia codice su iPhone/dispositivo fidato, inseriscilo nel campo verifica.'); startLogin(); }
-async function watchJob(jobId){
-  clearInterval(pollTimer);
-  async function tick(){
-    try{
-      const job=await api('/api/icloud/job/'+encodeURIComponent(jobId));
-      $('log').textContent = cleanLog(job.log || ''); $('log').scrollTop = $('log').scrollHeight;
-      const log=job.log||'';
-      if(log.includes('2FA_METHOD') || log.includes('a:') || log.includes('trusted phone')) { step(2,'active'); await refreshMethods(true); }
-      if(log.includes('2FA_METHOD_SENT')) { step(2,'done'); step(3,'active'); setStatus('run','Codice richiesto: inseriscilo'); }
-      if(log.includes('2FA_PUSH_OR_DEFAULT') && !defaultNotified){ defaultNotified=true; $('twoFABox').style.display='block'; setStatus('run','Codice inviato al dispositivo fidato'); toast('Inserisci il codice mostrato su iPhone/dispositivo'); }
-      if(log.includes('2FA_CODE_SENT')) { step(3,'done'); setStatus('run','Verifica codice…'); }
-      if(log.includes('AUTH_OK') || job.status==='done'){ step(4,'done'); setStatus('ok','iCloud collegato'); clearInterval(pollTimer); await loadStatus(); toast('iCloud collegato'); }
-      if(job.status==='error'){ setStatus('err','Errore login/sync'); clearInterval(pollTimer); await loadStatus(); }
-      if(job.status==='needs_2fa'){ $('twoFABox').style.display='block'; setStatus('run','Serve codice 2FA'); }
-    }catch(e){ setStatus('err',e.message); }
-  }
-  await tick(); pollTimer=setInterval(tick,2000);
-}
-async function refreshMethods(silent=false){
-  try{
-    const data=await api('/api/icloud/2fa-methods');
-    if(data && data.selectable && Array.isArray(data.methods) && data.methods.length){ showMethods(data.methods); }
-    else if(!silent) toast('Nessun metodo selezionabile: controlla codice su iPhone/SMS');
-  }catch(e){ if(!silent) toast(e.message); }
-}
-function showMethods(methods){
-  if(activeJob && popupShownForJob===activeJob) return;
-  popupShownForJob=activeJob || 'manual';
-  const list=$('methodList'); list.innerHTML='';
-  methods.forEach(m=>{
-    const b=document.createElement('button'); b.className='method';
-    b.innerHTML=`${m.label || ('Metodo '+m.index)}<small>${m.kind || 'verifica'} · indice ${m.index}</small>`;
-    b.onclick=()=>selectMethod(m.index);
-    list.appendChild(b);
-  });
-  $('methodModal').classList.add('show');
-}
-function hideMethods(){ $('methodModal').classList.remove('show'); }
-async function selectMethod(index){
-  try{ await api('/api/icloud/2fa-method',{method:'POST',body:JSON.stringify({index})}); hideMethods(); step(2,'done'); step(3,'active'); setStatus('run','Metodo scelto, attendi codice'); toast('Metodo selezionato'); }
-  catch(e){ toast(e.message); }
-}
-async function submit2FA(){
-  const code=$('code').value.trim(); if(!/^\d{4,8}$/.test(code)) return toast('Codice non valido');
-  try{ await api('/api/icloud/2fa',{method:'POST',body:JSON.stringify({code})}); step(3,'done'); setStatus('run','Codice inviato…'); toast('Codice inviato'); }
-  catch(e){ toast(e.message); }
-}
-async function syncAll(){
-  try{ const r=await api('/api/icloud/sync',{method:'POST',body:JSON.stringify({sections:['photos','videos','drive','contacts','calendar','devices','reminders'],recent:100})}); activeJob=r.jobId; setStatus('run','Sync avviata'); watchJob(activeJob); }
-  catch(e){ toast(e.message); }
-}
-function openDashboard(){ location.href='/dashboard/?token='+encodeURIComponent(TOKEN)+'#icloud'; }
-loadStatus(); setInterval(loadStatus,10000);
-</script>
+  <!-- Method modal -->
+  <div id="methodModal" class="hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-lg items-center justify-center px-4">
+    <div class="w-full max-w-[390px] rounded-2xl border border-[#3a3a3c] bg-[#1c1c1e] p-5 shadow-2xl">
+      <h2 class="text-[21px] font-semibold tracking-tight mb-2">Scegli dove ricevere il codice</h2>
+      <p class="text-[13px] text-[#8e8e93] leading-relaxed mb-4">Apple ha restituito più metodi verificabili. Seleziona il numero/dispositivo corretto.</p>
+      <div id="methodList" class="space-y-2"></div>
+      <button onclick="hideMethods()" class="mt-4 w-full bg-[#2c2c2e] hover:bg-[#3a3a3c] text-white text-[15px] font-medium py-2.5 rounded-xl transition-all">Chiudi</button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="absolute bottom-6 left-0 right-0 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-[12px] text-[#8e8e93] px-4">
+    <div class="flex items-center gap-4">
+      <span>Nexus iCloud Connector</span>
+      <span class="hidden sm:inline">|</span>
+      <span>Password non salvata</span>
+      <span class="hidden sm:inline">|</span>
+      <button onclick="openDashboard()" class="hover:text-white transition-colors">Dashboard</button>
+    </div>
+    <div class="sm:ml-4">Interfaccia privata autorizzata</div>
+  </div>
+
+  <div id="toast" class="hidden fixed left-1/2 bottom-20 -translate-x-1/2 z-50 rounded-full bg-white text-black px-4 py-2 text-[13px] font-medium shadow-xl max-w-[90vw] text-center"></div>
+
+  <script>
+    // Generate colored dots ring
+    const dotsGroup = document.getElementById('dots-ring');
+    const centerX = 50, centerY = 50, radius = 38, dotCount = 40;
+    const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43'];
+    for (let i = 0; i < dotCount; i++) {
+      const angle = (i / dotCount) * 2 * Math.PI - Math.PI / 2;
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', centerX + radius * Math.cos(angle));
+      circle.setAttribute('cy', centerY + radius * Math.sin(angle));
+      circle.setAttribute('r', '2.5');
+      circle.setAttribute('fill', colors[i % colors.length]);
+      circle.setAttribute('opacity', '0.9');
+      dotsGroup.appendChild(circle);
+    }
+
+    const qs = new URLSearchParams(location.search);
+    let TOKEN = qs.get('token') || localStorage.getItem('nexusToken') || '';
+    if (TOKEN) localStorage.setItem('nexusToken', TOKEN);
+    let activeJob = null, pollTimer = null, popupShownForJob = null, defaultNotified = false;
+    const $ = id => document.getElementById(id);
+
+    function tokenQS(){ return 'token=' + encodeURIComponent(TOKEN); }
+    async function api(path, opts={}){
+      const sep = path.includes('?') ? '&' : '?';
+      const res = await fetch(path + sep + tokenQS(), { headers:{'Content-Type':'application/json'}, ...opts });
+      const txt = await res.text(); let data={}; try{ data=txt?JSON.parse(txt):{} }catch{ data={raw:txt} }
+      if(!res.ok) throw new Error(data.error || data.message || ('HTTP '+res.status));
+      return data;
+    }
+    function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'),2800); }
+    function setStatus(kind,msg){
+      $('dot').className = 'w-2 h-2 rounded-full ' + (kind === 'ok' ? 'bg-[#30d158]' : kind === 'run' ? 'bg-[#0a84ff] animate-pulse' : kind === 'err' ? 'bg-[#ff453a]' : 'bg-[#636366]');
+      $('statusText').textContent = msg;
+    }
+    function cleanLog(s){ return String(s||'').replace(/[A-Za-z0-9._%+-]+@icloud\.com/gi, m => m.slice(0,2)+'***@icloud.com'); }
+    function toggleLog(){ $('logPanel').classList.toggle('hidden'); }
+    function showLog(){ $('logPanel').classList.remove('hidden'); }
+
+    async function loadStatus(){
+      try{
+        const st=await api('/api/icloud/status');
+        $('accountBadge').textContent = st.account ? `Account: ${st.account}` : 'Account: non collegato';
+        $('mPhotos').textContent = (st.totals?.photos ?? 0).toLocaleString('it-IT');
+        $('mVideos').textContent = (st.totals?.videos ?? 0).toLocaleString('it-IT');
+        $('mStatus').textContent = st.status || 'idle';
+        if(st.configured && (st.status === 'done' || st.status === 'idle')) setStatus('ok','Sessione iCloud pronta');
+        return st;
+      }catch(e){ setStatus('err','Token/API non valida'); $('accountBadge').textContent='Token richiesto'; }
+    }
+
+    async function startLogin(){
+      if(!TOKEN) return toast('Apri la pagina con ?token=...');
+      const appleId=$('appleId').value.trim(); const password=$('password').value;
+      if(!appleId || !password) return toast('Inserisci Apple ID e password');
+      setStatus('run','Avvio login…'); defaultNotified=false; popupShownForJob=null; showLog();
+      try{
+        const r=await api('/api/icloud/login',{method:'POST',body:JSON.stringify({appleId,password,recent:100})});
+        activeJob=r.jobId; $('twoFABox').classList.remove('hidden'); $('password').value=''; watchJob(activeJob);
+      }catch(e){ setStatus('err',e.message); toast(e.message); }
+    }
+    function startLoginTrusted(){ toast('Se Apple invia codice su iPhone/dispositivo fidato, inseriscilo nel campo verifica.'); startLogin(); }
+
+    async function watchJob(jobId){
+      clearInterval(pollTimer);
+      async function tick(){
+        try{
+          const job=await api('/api/icloud/job/'+encodeURIComponent(jobId));
+          $('log').textContent = cleanLog(job.log || ''); $('log').scrollTop = $('log').scrollHeight;
+          const log=job.log||'';
+          if(log.includes('2FA_METHOD') || log.includes('a:') || log.includes('trusted phone')) { await refreshMethods(true); }
+          if(log.includes('2FA_METHOD_SENT')) { setStatus('run','Codice richiesto: inseriscilo'); $('twoFABox').classList.remove('hidden'); }
+          if(log.includes('2FA_PUSH_OR_DEFAULT') && !defaultNotified){ defaultNotified=true; $('twoFABox').classList.remove('hidden'); setStatus('run','Codice inviato al dispositivo fidato'); toast('Inserisci il codice mostrato su iPhone/dispositivo'); }
+          if(log.includes('2FA_CODE_SENT')) setStatus('run','Verifica codice…');
+          if(log.includes('AUTH_OK') || job.status==='done'){ setStatus('ok','iCloud collegato'); clearInterval(pollTimer); await loadStatus(); toast('iCloud collegato'); }
+          if(job.status==='error'){ setStatus('err','Errore login/sync'); clearInterval(pollTimer); await loadStatus(); }
+          if(job.status==='needs_2fa'){ $('twoFABox').classList.remove('hidden'); setStatus('run','Serve codice 2FA'); }
+        }catch(e){ setStatus('err',e.message); }
+      }
+      await tick(); pollTimer=setInterval(tick,2000);
+    }
+
+    async function refreshMethods(silent=false){
+      try{
+        const data=await api('/api/icloud/2fa-methods');
+        if(data && data.selectable && Array.isArray(data.methods) && data.methods.length){ showMethods(data.methods); }
+        else if(!silent) toast('Nessun metodo selezionabile: controlla codice su iPhone/SMS');
+      }catch(e){ if(!silent) toast(e.message); }
+    }
+    function showMethods(methods){
+      if(activeJob && popupShownForJob===activeJob) return;
+      popupShownForJob=activeJob || 'manual';
+      const list=$('methodList'); list.innerHTML='';
+      methods.forEach(m=>{
+        const b=document.createElement('button');
+        b.className='w-full text-left rounded-xl border border-[#3a3a3c] bg-black/30 hover:bg-white/10 px-4 py-3 transition-colors';
+        b.innerHTML=`<div class="text-[15px] font-medium text-white">${m.label || ('Metodo '+m.index)}</div><div class="text-[12px] text-[#8e8e93] mt-0.5">${m.kind || 'verifica'} · indice ${m.index}</div>`;
+        b.onclick=()=>selectMethod(m.index);
+        list.appendChild(b);
+      });
+      $('methodModal').classList.remove('hidden'); $('methodModal').classList.add('flex');
+    }
+    function hideMethods(){ $('methodModal').classList.add('hidden'); $('methodModal').classList.remove('flex'); }
+    async function selectMethod(index){
+      try{ await api('/api/icloud/2fa-method',{method:'POST',body:JSON.stringify({index})}); hideMethods(); $('twoFABox').classList.remove('hidden'); setStatus('run','Metodo scelto, attendi codice'); toast('Metodo selezionato'); }
+      catch(e){ toast(e.message); }
+    }
+    async function submit2FA(){
+      const code=$('code').value.trim(); if(!/^\d{4,8}$/.test(code)) return toast('Codice non valido');
+      try{ await api('/api/icloud/2fa',{method:'POST',body:JSON.stringify({code})}); $('code').value=''; setStatus('run','Codice inviato…'); toast('Codice inviato'); showLog(); }
+      catch(e){ toast(e.message); }
+    }
+    async function syncAll(){
+      try{ const r=await api('/api/icloud/sync',{method:'POST',body:JSON.stringify({sections:['photos','videos','drive','contacts','calendar','devices','reminders'],recent:100})}); activeJob=r.jobId; setStatus('run','Sync avviata'); showLog(); watchJob(activeJob); }
+      catch(e){ toast(e.message); }
+    }
+    async function loadLogs(){ try{ const r=await api('/api/icloud/logs'); $('log').textContent=cleanLog(r.logs||''); showLog(); }catch(e){ toast(e.message); } }
+    function openDashboard(){ location.href='/dashboard/?token='+encodeURIComponent(TOKEN)+'#icloud'; }
+
+    loadStatus(); setInterval(loadStatus,10000);
+  </script>
 </body>
 </html>
