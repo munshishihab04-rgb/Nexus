@@ -9,6 +9,8 @@ This script is intentionally conservative:
 """
 import json
 import os
+import re
+import shutil
 import sys
 import time
 from pathlib import Path
@@ -73,6 +75,195 @@ def describe_trusted_device(device, idx):
     }
 
 
+def method_token_for_index(index):
+    # icloudpd often uses letters (a,b,c). Some versions use numeric indexes.
+    if 0 <= index < 26:
+        return chr(ord('a') + index)
+    return str(index)
+
+
+def parse_icloudpd_method_line(line):
+    # Examples seen in icloudpd/Apple flows: "  a: *** *** **85", "a: +39 ••• 85", "0: iPhone"
+    text = safe_str(line).strip()
+    m = re.match(r'^([a-zA-Z]|\d{1,2})\s*[:\)]\s*(.+)$', text)
+    if not m:
+        return None
+    token, label = m.group(1), m.group(2).strip()
+    if not label or len(label) > 160:
+        return None
+    # Avoid parsing log prefixes as choices.
+    if label.lower().startswith(('debug', 'info', 'error', 'warning')):
+        return None
+    idx = ord(token.lower()) - ord('a') if token.isalpha() else int(token)
+    return {
+        'index': idx,
+        'token': token,
+        'label': label,
+        'kind': 'sms' if any(ch.isdigit() for ch in label) or '*' in label or '•' in label else 'device',
+        'obfuscated': label,
+    }
+
+
+def wait_for_dashboard_method(methods, method_file, timeout=180):
+    selected = int(METHOD_INDEX) if METHOD_INDEX.strip().isdigit() else None
+    deadline = time.time() + timeout
+    while selected is None and time.time() < deadline:
+        if method_file.exists():
+            raw = method_file.read_text(encoding='utf-8').strip()
+            try:
+                method_file.unlink()
+            except Exception:
+                pass
+            if raw.isdigit():
+                selected = int(raw)
+                break
+        time.sleep(1)
+    if selected is None:
+        return None
+    for m in methods:
+        if int(m.get('index', -1)) == selected:
+            return m
+    return None
+
+
+def wait_for_dashboard_code(code_file, timeout=180):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if code_file.exists():
+            code = code_file.read_text(encoding='utf-8').strip()
+            try:
+                code_file.unlink()
+            except Exception:
+                pass
+            return code
+        time.sleep(1)
+    return None
+
+
+def login_with_icloudpd_auth_only():
+    """Fallback auth flow using icloudpd + pexpect.
+
+    This path is used when pyicloud dies before exposing 2FA methods. icloudpd's
+    console MFA flow often prints selectable SMS choices (a:, b:, ...). We parse
+    those choices, publish them to the dashboard, then feed the user's selection
+    and code back into the process.
+    """
+    try:
+        import pexpect  # type: ignore
+    except Exception as e:
+        log(f'ICLOUDPD_SETUP_MISSING: pexpect not installed: {e}')
+        raise SystemExit(21)
+    icloudpd_bin = shutil.which('icloudpd')
+    if not icloudpd_bin:
+        candidate = Path(sys.executable).with_name('icloudpd')
+        if candidate.exists():
+            icloudpd_bin = str(candidate)
+    if not icloudpd_bin:
+        log('ICLOUDPD_SETUP_MISSING: icloudpd not installed')
+        raise SystemExit(21)
+    if not APPLE_ID or not PASSWORD:
+        log('ICLOUDPD_MISSING_APPLE_ID_PASSWORD')
+        raise SystemExit(2)
+
+    methods_file = RUNTIME_DIR / '2fa_methods.json'
+    method_file = RUNTIME_DIR / '2fa_method_index.txt'
+    code_file = RUNTIME_DIR / '2fa_code.txt'
+    for f in [method_file, code_file]:
+        try:
+            f.unlink()
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
+
+    cookie_dir = RUNTIME_DIR / 'icloudpd_cookies'
+    download_dir = DOWNLOADS_DIR / 'icloudpd_auth_probe'
+    cookie_dir.mkdir(parents=True, exist_ok=True)
+    download_dir.mkdir(parents=True, exist_ok=True)
+
+    cmd = [
+        icloudpd_bin,
+        '--username', APPLE_ID,
+        '--password', PASSWORD,
+        '--password-provider', 'parameter',
+        '--mfa-provider', 'console',
+        '--directory', str(download_dir),
+        '--cookie-directory', str(cookie_dir),
+        '--auth-only',
+        '--no-progress-bar',
+        '--log-level', 'debug',
+    ]
+    log(f'ICLOUDPD_AUTH_START as {APPLE_ID[:2]}***')
+    child = pexpect.spawn(cmd[0], cmd[1:], encoding='utf-8', timeout=1, echo=False)
+    methods_by_idx = {}
+    selected_sent = False
+    code_sent = False
+    saw_mfa = False
+    buffer = ''
+    deadline = time.time() + 300
+    while time.time() < deadline:
+        try:
+            chunk = child.read_nonblocking(size=4096, timeout=1)
+        except pexpect.TIMEOUT:
+            chunk = ''
+        except pexpect.EOF:
+            break
+        if chunk:
+            buffer += chunk
+            lines = re.split(r'\r?\n', buffer)
+            buffer = lines.pop() if lines else ''
+            for raw in lines:
+                line = raw.strip()
+                if not line:
+                    continue
+                lower = line.lower()
+                redacted = line.replace(APPLE_ID, APPLE_ID[:2] + '***')
+                # Keep logs useful but avoid dumping password; icloudpd does not print it normally.
+                log('ICLOUDPD ' + redacted[:500])
+                if any(x in lower for x in ['two-factor', 'two factor', 'verification code', 'mfa', 'trusted phone', 'device index']):
+                    saw_mfa = True
+                method = parse_icloudpd_method_line(line)
+                if method and not code_sent:
+                    methods_by_idx[method['index']] = method
+                    methods = [methods_by_idx[k] for k in sorted(methods_by_idx)]
+                    write_json(methods_file, {'selectable': True, 'delivery': 'icloudpd_console', 'methods': methods, 'createdAt': int(time.time()*1000)})
+                    log(f"2FA_METHOD {method['index']}: {method['label']}")
+        if methods_by_idx and not selected_sent:
+            chosen = wait_for_dashboard_method([methods_by_idx[k] for k in sorted(methods_by_idx)], method_file, timeout=1)
+            if chosen:
+                token = chosen.get('token') or method_token_for_index(int(chosen['index']))
+                child.sendline(str(token))
+                selected_sent = True
+                log(f"2FA_METHOD_SENT index={chosen['index']}")
+        # Some icloudpd flows ask for a code after a choice, others after default delivery.
+        if saw_mfa and not methods_by_idx and not selected_sent:
+            write_json(methods_file, {'selectable': False, 'delivery': 'icloudpd_default', 'methods': [], 'createdAt': int(time.time()*1000)})
+            selected_sent = True
+            log('2FA_PUSH_OR_DEFAULT: icloudpd is waiting for verification code. Submit code in dashboard.')
+        if selected_sent and not code_sent:
+            code = wait_for_dashboard_code(code_file, timeout=1)
+            if code:
+                child.sendline(code)
+                code_sent = True
+                log('2FA_CODE_SENT_TO_ICLOUDPD')
+    try:
+        child.expect(pexpect.EOF, timeout=2)
+    except Exception:
+        pass
+    rc = child.exitstatus if child.exitstatus is not None else child.signalstatus
+    if rc == 0:
+        log('ICLOUDPD_AUTH_OK')
+        return True
+    if methods_by_idx and not selected_sent:
+        log('ICLOUDPD_2FA_METHOD_TIMEOUT')
+        raise SystemExit(20)
+    if selected_sent and not code_sent:
+        log('ICLOUDPD_2FA_CODE_TIMEOUT')
+        raise SystemExit(20)
+    log(f'ICLOUDPD_AUTH_FAILED rc={rc}')
+    raise SystemExit(1)
+
+
 def require_pyicloud():
     try:
         from pyicloud import PyiCloudService  # type: ignore
@@ -92,9 +283,19 @@ def login():
     cookie_dir.mkdir(parents=True, exist_ok=True)
     log(f'Logging in to iCloud as {APPLE_ID[:2]}***')
     try:
-        api = PyiCloudService(APPLE_ID, PASSWORD, cookie_directory=str(cookie_dir))
-    except TypeError:
-        api = PyiCloudService(APPLE_ID, PASSWORD)
+        try:
+            api = PyiCloudService(APPLE_ID, PASSWORD, cookie_directory=str(cookie_dir))
+        except TypeError:
+            api = PyiCloudService(APPLE_ID, PASSWORD)
+    except Exception as e:
+        log(f'PYICLOUD_LOGIN_FAILED_BEFORE_2FA: {e!r}')
+        log('Trying icloudpd fallback to expose selectable SMS/trusted-number methods.')
+        login_with_icloudpd_auth_only()
+        # Auth-only fallback succeeded. pyicloud may still be unable to reuse the session on this IP,
+        # so ACTION=auth exits successfully after creating icloudpd cookies.
+        if ACTION == 'auth':
+            return None
+        raise SystemExit(20)
     if getattr(api, 'requires_2fa', False) or getattr(api, 'requires_2sa', False):
         code_file = RUNTIME_DIR / '2fa_code.txt'
         method_file = RUNTIME_DIR / '2fa_method_index.txt'
@@ -305,7 +506,8 @@ def collect_reminders(api):
 def main():
     api = login()
     if ACTION == 'auth':
-        write_json(META_DIR / 'devices.json', collect_devices(api))
+        if api is not None:
+            write_json(META_DIR / 'devices.json', collect_devices(api))
         log('AUTH_OK')
         return 0
     totals = {}
