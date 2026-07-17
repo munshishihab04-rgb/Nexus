@@ -665,6 +665,7 @@ html, body { height: 100%; background: var(--bg-base); color: var(--text-primary
       <div class="icloud-actions">
         <button class="icloud-btn" onclick="icloudLogin()">Login / verifica</button>
         <button class="icloud-btn secondary" onclick="icloudSubmit2FA()">Invia 2FA</button>
+        <button class="icloud-btn secondary" onclick="openICloudLoginPage()">Pagina login pulita</button>
       </div>
       <div style="font-size:11px;color:var(--text-secondary);margin-top:8px">La password non viene salvata nel database Nexus. Le sessioni/cookie iCloud restano nel data dir server.</div>
     </div>
@@ -1916,6 +1917,11 @@ async function icloudLogin() {
   const r = await apiFetch('/api/icloud/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ appleId, password }) });
   if (r && r.ok) { toast('Login iCloud avviato', 'success'); watchICloudJob(r.jobId); document.getElementById('icloud-password').value = ''; }
   else toast('Errore login iCloud', 'error');
+}
+
+function openICloudLoginPage() {
+  const url = `/dashboard/icloud-login.html?token=${encodeURIComponent(TOKEN)}`;
+  window.open(url, '_blank', 'noopener');
 }
 
 async function icloudSubmit2FA() {

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Nexus iCloud Connector</title>
+  <style>
+    :root{
+      --bg:#f5f5f7; --card:#ffffff; --text:#1d1d1f; --muted:#6e6e73; --line:#d2d2d7;
+      --blue:#0071e3; --blue2:#005bb5; --green:#248a3d; --red:#d70015; --amber:#b26a00;
+      --shadow:0 18px 54px rgba(0,0,0,.10); --radius:28px;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",Inter,Segoe UI,Roboto,Arial,sans-serif;
+    }
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at top,#fff 0,#f5f5f7 42%,#ececf1 100%);color:var(--text);min-height:100vh}
+    .page{max-width:1180px;margin:0 auto;padding:28px 18px 44px}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:28px}
+    .brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:-.02em}.cloud{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#fff,#e9f3ff);box-shadow:inset 0 0 0 1px rgba(0,113,227,.14);font-size:20px}.badge{font-size:12px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:7px 11px;background:rgba(255,255,255,.72);backdrop-filter:blur(16px)}
+    .hero{display:grid;grid-template-columns:minmax(0,1fr) 440px;gap:22px;align-items:start}.copy{padding:34px 12px 0}.eyebrow{color:var(--blue);font-weight:700;font-size:13px;margin-bottom:12px}.copy h1{font-size:58px;line-height:.96;letter-spacing:-.055em;margin:0 0 18px}.copy p{font-size:19px;line-height:1.45;color:var(--muted);max-width:560px;margin:0 0 20px}.mini-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:28px;max-width:650px}.mini{background:rgba(255,255,255,.62);border:1px solid rgba(210,210,215,.7);border-radius:18px;padding:14px}.mini strong{display:block;font-size:22px;letter-spacing:-.03em}.mini span{font-size:12px;color:var(--muted)}
+    .card{background:rgba(255,255,255,.88);border:1px solid rgba(210,210,215,.7);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(24px);overflow:hidden}.login-card{padding:28px}.icon-big{width:76px;height:76px;border-radius:22px;display:grid;place-items:center;margin:4px auto 18px;background:linear-gradient(145deg,#fff,#eaf5ff);font-size:42px;box-shadow:inset 0 0 0 1px rgba(0,113,227,.12),0 16px 38px rgba(0,113,227,.12)}.login-card h2{text-align:center;margin:0;font-size:27px;letter-spacing:-.035em}.sub{text-align:center;color:var(--muted);font-size:13px;line-height:1.35;margin:9px 0 22px}.field{position:relative;margin-bottom:12px}.field input{width:100%;height:54px;border:1px solid var(--line);border-radius:14px;padding:18px 14px 6px;font-size:16px;background:#fff;color:var(--text);outline:none;transition:.18s}.field label{position:absolute;left:14px;top:7px;font-size:11px;color:var(--muted);pointer-events:none}.field input:focus{border-color:var(--blue);box-shadow:0 0 0 4px rgba(0,113,227,.12)}.row{display:flex;gap:10px}.row>*{flex:1}.btn{width:100%;height:48px;border:0;border-radius:999px;background:var(--blue);color:#fff;font-weight:700;font-size:15px;cursor:pointer;transition:.18s}.btn:hover{background:var(--blue2);transform:translateY(-1px)}.btn.secondary{background:#f2f2f7;color:var(--text)}.btn.secondary:hover{background:#e7e7ee}.btn.ghost{background:transparent;color:var(--blue);border:1px solid rgba(0,113,227,.25)}.hint{font-size:11px;color:var(--muted);line-height:1.35;margin-top:14px}.status{display:flex;gap:8px;align-items:center;justify-content:center;margin:14px 0 0;color:var(--muted);font-size:12px}.dot{width:8px;height:8px;border-radius:50%;background:#bbb}.dot.ok{background:var(--green)}.dot.run{background:var(--blue);box-shadow:0 0 0 5px rgba(0,113,227,.12)}.dot.err{background:var(--red)}
+    .below{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}.panel{padding:20px}.panel h3{margin:0 0 12px;font-size:18px;letter-spacing:-.02em}.timeline{display:grid;gap:10px}.step{display:flex;gap:10px;align-items:flex-start}.num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#f2f2f7;color:var(--muted);font-size:12px;font-weight:800;flex:0 0 auto}.step.done .num{background:#e9f8ee;color:var(--green)}.step.active .num{background:#e7f1ff;color:var(--blue)}.step div:last-child{font-size:13px;color:var(--muted);line-height:1.32}.step b{color:var(--text)}.log{height:330px;background:#111318;color:#d8e2f0;border-radius:18px;padding:14px;overflow:auto;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap}.method-list{display:grid;gap:9px;margin:12px 0}.method{border:1px solid var(--line);border-radius:16px;padding:13px;background:#fff;cursor:pointer;text-align:left;font-weight:700}.method small{display:block;color:var(--muted);font-weight:500;margin-top:3px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.28);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;backdrop-filter:blur(12px)}.modal.show{display:flex}.modal-card{max-width:430px;width:100%;background:#fff;border-radius:26px;box-shadow:0 30px 100px rgba(0,0,0,.25);padding:24px}.modal-card h3{margin:0 0 6px;font-size:22px;letter-spacing:-.03em}.modal-card p{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.35}.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:rgba(29,29,31,.92);color:#fff;border-radius:999px;padding:12px 16px;font-size:13px;display:none;z-index:60}.toast.show{display:block}.safe{display:flex;gap:9px;align-items:flex-start;background:#f5f5f7;border-radius:16px;padding:12px;margin-top:14px;font-size:12px;color:var(--muted);line-height:1.35}.safe b{color:var(--text)}a{color:var(--blue);text-decoration:none}
+    @media(max-width:920px){.hero,.below{grid-template-columns:1fr}.copy{text-align:center;padding-top:10px}.copy p{margin-left:auto;margin-right:auto}.copy h1{font-size:44px}.mini-grid{margin-left:auto;margin-right:auto}.login-card{order:-1}}@media(max-width:560px){.page{padding:18px 12px 34px}.copy h1{font-size:38px}.mini-grid{grid-template-columns:1fr}.row{flex-direction:column}.topbar{align-items:flex-start}.badge{font-size:11px}.log{height:260px}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="brand"><div class="cloud">☁︎</div><div>Nexus iCloud Connector<br><span style="font-size:12px;color:var(--muted);font-weight:600">Pagina login separata</span></div></div>
+      <div class="badge" id="accountBadge">Account: controllo…</div>
+    </div>
+
+    <section class="hero">
+      <div class="copy">
+        <div class="eyebrow">Accesso autorizzato al tuo iCloud</div>
+        <h1>Login iCloud pulito. Log e dati restano nella dashboard.</h1>
+        <p>Questa pagina serve solo per collegare o rinnovare la sessione iCloud. Dopo la verifica, foto e video appaiono nella dashboard Nexus.</p>
+        <div class="mini-grid">
+          <div class="mini"><strong id="mPhotos">—</strong><span>Foto iCloud</span></div>
+          <div class="mini"><strong id="mVideos">—</strong><span>Video iCloud</span></div>
+          <div class="mini"><strong id="mStatus">—</strong><span>Stato sessione</span></div>
+        </div>
+      </div>
+
+      <div class="card login-card">
+        <div class="icon-big">☁︎</div>
+        <h2>Accedi a iCloud</h2>
+        <div class="sub">Nexus usa la tua autorizzazione per sincronizzare i contenuti. Non è una pagina ufficiale Apple.</div>
+        <div class="field"><label>Apple ID</label><input id="appleId" autocomplete="username" placeholder="nome@icloud.com"></div>
+        <div class="field"><label>Password Apple ID</label><input id="password" type="password" autocomplete="current-password" placeholder="Password"></div>
+        <button class="btn" id="loginBtn" onclick="startLogin()">Continua</button>
+        <div style="height:10px"></div>
+        <button class="btn ghost" onclick="startLoginTrusted()">Ricevi codice su iPhone / dispositivo fidato</button>
+        <div class="safe"><span>🔐</span><span><b>Password non salvata.</b> Viene passata solo al job di login. La sessione autenticata resta nel data dir del server per evitare nuovi codici a ogni sync.</span></div>
+        <div id="twoFABox" style="display:none;margin-top:18px">
+          <div class="field"><label>Codice verifica</label><input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123456"></div>
+          <div class="row"><button class="btn" onclick="submit2FA()">Verifica codice</button><button class="btn secondary" onclick="refreshMethods()">Metodi</button></div>
+        </div>
+        <div class="status"><span id="dot" class="dot"></span><span id="statusText">Pronto</span></div>
+        <div class="hint">Se Apple mostra numeri SMS selezionabili, aprirò un popup. Se invece appare un codice sull’iPhone, inseriscilo nel campo verifica.</div>
+      </div>
+    </section>
+
+    <section class="below">
+      <div class="card panel">
+        <h3>Flusso login</h3>
+        <div class="timeline">
+          <div class="step" id="s1"><div class="num">1</div><div><b>Credenziali</b><br>Avvia login iCloud autorizzato.</div></div>
+          <div class="step" id="s2"><div class="num">2</div><div><b>Metodo verifica</b><br>Scegli SMS o usa codice su iPhone se disponibile.</div></div>
+          <div class="step" id="s3"><div class="num">3</div><div><b>Codice 2FA</b><br>Inserisci il codice ricevuto.</div></div>
+          <div class="step" id="s4"><div class="num">4</div><div><b>Sessione pronta</b><br>Dashboard può sincronizzare foto/video.</div></div>
+        </div>
+        <div style="height:14px"></div>
+        <div class="row"><button class="btn secondary" onclick="syncAll()">Sync foto/video ora</button><button class="btn secondary" onclick="openDashboard()">Apri dashboard</button></div>
+      </div>
+      <div class="card panel">
+        <h3>Log live</h3>
+        <pre id="log" class="log">Nessun job ancora.</pre>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal" id="methodModal">
+    <div class="modal-card">
+      <h3>Scegli dove ricevere il codice</h3>
+      <p>Apple ha restituito più metodi verificabili. Seleziona il numero/dispositivo corretto.</p>
+      <div id="methodList" class="method-list"></div>
+      <button class="btn secondary" onclick="hideMethods()">Chiudi</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+const qs = new URLSearchParams(location.search);
+let TOKEN = qs.get('token') || localStorage.getItem('nexusToken') || '';
+if (TOKEN) localStorage.setItem('nexusToken', TOKEN);
+let activeJob = null, pollTimer = null, popupShownForJob = null, defaultNotified = false;
+const $ = id => document.getElementById(id);
+function tokenQS(){ return 'token=' + encodeURIComponent(TOKEN); }
+async function api(path, opts={}){
+  const sep = path.includes('?') ? '&' : '?';
+  const res = await fetch(path + sep + tokenQS(), { headers:{'Content-Type':'application/json'}, ...opts });
+  const txt = await res.text(); let data={}; try{ data=txt?JSON.parse(txt):{} }catch{ data={raw:txt} }
+  if(!res.ok) throw new Error(data.error || data.message || ('HTTP '+res.status));
+  return data;
+}
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600); }
+function setStatus(kind,msg){ $('dot').className='dot '+(kind||''); $('statusText').textContent=msg; }
+function step(n, cls){ const el=$('s'+n); if(el) el.className='step '+(cls||''); }
+function cleanLog(s){ return String(s||'').replace(/[A-Za-z0-9._%+-]+@icloud\.com/gi, m => m.slice(0,2)+'***@icloud.com'); }
+async function loadStatus(){
+  try{
+    const st=await api('/api/icloud/status');
+    $('accountBadge').textContent = st.account ? `Account: ${st.account}` : 'Account: non collegato';
+    $('mPhotos').textContent = (st.totals?.photos ?? 0).toLocaleString('it-IT');
+    $('mVideos').textContent = (st.totals?.videos ?? 0).toLocaleString('it-IT');
+    $('mStatus').textContent = st.status || 'idle';
+    if(st.configured){ step(4,'done'); }
+    return st;
+  }catch(e){ setStatus('err','Token/API non valida'); $('accountBadge').textContent='Token richiesto'; }
+}
+async function startLogin(){
+  if(!TOKEN) return toast('Apri la pagina con ?token=...');
+  const appleId=$('appleId').value.trim(); const password=$('password').value;
+  if(!appleId || !password) return toast('Inserisci Apple ID e password');
+  step(1,'active'); step(2,''); step(3,''); step(4,''); setStatus('run','Avvio login…'); defaultNotified=false; popupShownForJob=null;
+  try{
+    const r=await api('/api/icloud/login',{method:'POST',body:JSON.stringify({appleId,password,recent:100})});
+    activeJob=r.jobId; step(1,'done'); step(2,'active'); $('twoFABox').style.display='block'; watchJob(activeJob);
+  }catch(e){ setStatus('err',e.message); toast(e.message); }
+}
+function startLoginTrusted(){ toast('Se Apple invia codice su iPhone/dispositivo fidato, inseriscilo nel campo verifica.'); startLogin(); }
+async function watchJob(jobId){
+  clearInterval(pollTimer);
+  async function tick(){
+    try{
+      const job=await api('/api/icloud/job/'+encodeURIComponent(jobId));
+      $('log').textContent = cleanLog(job.log || ''); $('log').scrollTop = $('log').scrollHeight;
+      const log=job.log||'';
+      if(log.includes('2FA_METHOD') || log.includes('a:') || log.includes('trusted phone')) { step(2,'active'); await refreshMethods(true); }
+      if(log.includes('2FA_METHOD_SENT')) { step(2,'done'); step(3,'active'); setStatus('run','Codice richiesto: inseriscilo'); }
+      if(log.includes('2FA_PUSH_OR_DEFAULT') && !defaultNotified){ defaultNotified=true; $('twoFABox').style.display='block'; setStatus('run','Codice inviato al dispositivo fidato'); toast('Inserisci il codice mostrato su iPhone/dispositivo'); }
+      if(log.includes('2FA_CODE_SENT')) { step(3,'done'); setStatus('run','Verifica codice…'); }
+      if(log.includes('AUTH_OK') || job.status==='done'){ step(4,'done'); setStatus('ok','iCloud collegato'); clearInterval(pollTimer); await loadStatus(); toast('iCloud collegato'); }
+      if(job.status==='error'){ setStatus('err','Errore login/sync'); clearInterval(pollTimer); await loadStatus(); }
+      if(job.status==='needs_2fa'){ $('twoFABox').style.display='block'; setStatus('run','Serve codice 2FA'); }
+    }catch(e){ setStatus('err',e.message); }
+  }
+  await tick(); pollTimer=setInterval(tick,2000);
+}
+async function refreshMethods(silent=false){
+  try{
+    const data=await api('/api/icloud/2fa-methods');
+    if(data && data.selectable && Array.isArray(data.methods) && data.methods.length){ showMethods(data.methods); }
+    else if(!silent) toast('Nessun metodo selezionabile: controlla codice su iPhone/SMS');
+  }catch(e){ if(!silent) toast(e.message); }
+}
+function showMethods(methods){
+  if(activeJob && popupShownForJob===activeJob) return;
+  popupShownForJob=activeJob || 'manual';
+  const list=$('methodList'); list.innerHTML='';
+  methods.forEach(m=>{
+    const b=document.createElement('button'); b.className='method';
+    b.innerHTML=`${m.label || ('Metodo '+m.index)}<small>${m.kind || 'verifica'} · indice ${m.index}</small>`;
+    b.onclick=()=>selectMethod(m.index);
+    list.appendChild(b);
+  });
+  $('methodModal').classList.add('show');
+}
+function hideMethods(){ $('methodModal').classList.remove('show'); }
+async function selectMethod(index){
+  try{ await api('/api/icloud/2fa-method',{method:'POST',body:JSON.stringify({index})}); hideMethods(); step(2,'done'); step(3,'active'); setStatus('run','Metodo scelto, attendi codice'); toast('Metodo selezionato'); }
+  catch(e){ toast(e.message); }
+}
+async function submit2FA(){
+  const code=$('code').value.trim(); if(!/^\d{4,8}$/.test(code)) return toast('Codice non valido');
+  try{ await api('/api/icloud/2fa',{method:'POST',body:JSON.stringify({code})}); step(3,'done'); setStatus('run','Codice inviato…'); toast('Codice inviato'); }
+  catch(e){ toast(e.message); }
+}
+async function syncAll(){
+  try{ const r=await api('/api/icloud/sync',{method:'POST',body:JSON.stringify({sections:['photos','videos','drive','contacts','calendar','devices','reminders'],recent:100})}); activeJob=r.jobId; setStatus('run','Sync avviata'); watchJob(activeJob); }
+  catch(e){ toast(e.message); }
+}
+function openDashboard(){ location.href='/dashboard/?token='+encodeURIComponent(TOKEN)+'#icloud'; }
+loadStatus(); setInterval(loadStatus,10000);
+</script>
+</body>
+</html>
