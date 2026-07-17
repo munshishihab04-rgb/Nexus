@@ -46,13 +46,25 @@ public final class NotificationEventQueue {
     public synchronized void markAllSent(JSONArray delivered) {
         try {
             LinkedHashSet<String> ids = new LinkedHashSet<>(sentIds());
+            LinkedHashSet<String> deliveredIds = new LinkedHashSet<>();
             for (int i = 0; i < delivered.length(); i++) {
                 String id = delivered.getJSONObject(i).optString("eventId");
-                if (!id.isEmpty()) ids.add(id);
+                if (!id.isEmpty()) { ids.add(id); deliveredIds.add(id); }
             }
             while (ids.size() > MAX_SENT) ids.remove(ids.iterator().next());
+
+            // Do not clear the whole outbox: notifications can arrive while the
+            // sender thread is posting a snapshot. Remove only the confirmed IDs.
+            JSONArray current = readArray(OUTBOX);
+            JSONArray remaining = new JSONArray();
+            for (int i = 0; i < current.length(); i++) {
+                JSONObject event = current.optJSONObject(i);
+                if (event == null) continue;
+                String id = event.optString("eventId");
+                if (id.isEmpty() || !deliveredIds.contains(id)) remaining.put(event);
+            }
             prefs.edit().putString(SENT, new JSONArray(ids).toString())
-                .putString(OUTBOX, "[]").apply();
+                .putString(OUTBOX, remaining.toString()).apply();
         } catch (Exception ignored) {}
     }
 

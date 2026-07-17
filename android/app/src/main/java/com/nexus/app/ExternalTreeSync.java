@@ -7,7 +7,7 @@ import android.provider.DocumentsContract;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Incremental, bounded traversal of a user-selected SAF tree (for example an SD card). */
+/** Incremental, bounded traversal of a user-selected backup/extra folder (for example WhatsApp backups). */
 public final class ExternalTreeSync {
     private static final String PREFS = "nexus_external_tree_v1";
     private static final String KEY_TREE = "tree_uri";
@@ -71,11 +71,11 @@ public final class ExternalTreeSync {
                 if (DocumentsContract.Document.MIME_TYPE_DIR.equals(mime)) {
                     Uri nested = DocumentsContract.buildChildDocumentsUriUsingTree(document, id);
                     walk(nested, done);
-                } else if (ExternalTreePolicy.isSupportedMime(mime)) {
+                } else if (ExternalTreePolicy.isSupportedBackupFile(name, mime)) {
                     visited++;
-                    if (mime.startsWith("video/") && size > ExternalTreePolicy.MAX_VIDEO_BYTES) continue;
+                    if (mime != null && mime.startsWith("video/") && size > ExternalTreePolicy.MAX_VIDEO_BYTES) continue;
                     String key = ExternalTreePolicy.key(document.toString(), modified, size);
-                    if (!done.contains(key) && api.uploadMedia(document, name, mime)) {
+                    if (!done.contains(key) && api.uploadBackupFile(document, name, mime)) {
                         done.add(key);
                         trim(done);
                         prefs.edit().putStringSet(KEY_DONE, new HashSet<>(done)).commit();

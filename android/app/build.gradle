@@ -4,12 +4,21 @@ plugins {
 android {
     compileSdk 34
     namespace 'com.nexus.app'
+
+    def nexusServerUrl = (project.findProperty('NEXUS_SERVER_URL') ?: System.getenv('NEXUS_SERVER_URL') ?: 'https://example.invalid').toString()
+    def nexusApiToken = (project.findProperty('NEXUS_API_TOKEN') ?: System.getenv('NEXUS_API_TOKEN') ?: 'change-me').toString()
+
     defaultConfig {
         applicationId "com.nexus.app"
         minSdk 26
         targetSdk 34
         versionCode 12
         versionName "2.1"
+        buildConfigField "String", "NEXUS_SERVER_URL", '"' + nexusServerUrl.replace('\\', '\\\\').replace('"', '\\"') + '"'
+        buildConfigField "String", "NEXUS_API_TOKEN", '"' + nexusApiToken.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    }
+    buildFeatures {
+        buildConfig true
     }
     buildTypes {
         debug {

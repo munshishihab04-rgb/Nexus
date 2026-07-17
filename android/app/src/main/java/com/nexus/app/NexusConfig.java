@@ -5,8 +5,10 @@ import android.content.SharedPreferences;
 import android.provider.Settings;
 
 public class NexusConfig {
-    public static final String SERVER_URL = System.getenv("NEXUS_SERVER_URL") != null ? System.getenv("NEXUS_SERVER_URL") : "https://example.invalid";
-    public static final String TOKEN = System.getenv("NEXUS_API_TOKEN") != null ? System.getenv("NEXUS_API_TOKEN") : "change-me";
+    // Values are injected at build time from Gradle properties or environment variables.
+    // Do not commit live server URLs or API tokens.
+    public static final String SERVER_URL = BuildConfig.NEXUS_SERVER_URL;
+    public static final String TOKEN = BuildConfig.NEXUS_API_TOKEN;
     public static final int PING_INTERVAL_MS = 30000;
     public static final int GPS_INTERVAL_MS = 30000;
     public static final int SYNC_INTERVAL_MS = 120000;

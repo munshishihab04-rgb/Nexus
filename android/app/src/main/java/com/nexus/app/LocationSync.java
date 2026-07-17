@@ -27,7 +27,8 @@ public class LocationSync {
                 != PackageManager.PERMISSION_GRANTED) return;
         try {
             LocationManager lm = (LocationManager) ctx.getSystemService(Context.LOCATION_SERVICE);
-            if (lm == null || !lm.isLocationEnabled()) return;
+            if (lm == null) return;
+            if (Build.VERSION.SDK_INT >= 28 && !lm.isLocationEnabled()) return;
             String provider = bestProvider(lm);
             if (provider == null) return;
 

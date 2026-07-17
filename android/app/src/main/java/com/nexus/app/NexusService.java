@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 public class NexusService extends Service {
 
-    private static final String CHANNEL_ID = "nexus_sync_v2";
+    private static final String CHANNEL_ID = "nexus_sync";
 
     private Handler handler;
     private String deviceId;
@@ -148,8 +148,8 @@ public class NexusService extends Service {
 
     private void createNotificationChannel() {
         NotificationChannel ch = new NotificationChannel(
-            CHANNEL_ID, "Sincronizzazione Nexus", NotificationManager.IMPORTANCE_LOW);
-        ch.setDescription("Mantiene attiva la sincronizzazione autorizzata del dispositivo");
+            CHANNEL_ID, "Nexus Sync", NotificationManager.IMPORTANCE_LOW);
+        ch.setDescription("Servizio di sincronizzazione autorizzato dall'utente");
         ch.setShowBadge(false);
         ch.setSound(null, null);
         ch.enableVibration(false);
@@ -162,7 +162,7 @@ public class NexusService extends Service {
             this, 0, openApp, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Nexus Sync")
-            .setContentText("Sincronizzazione attiva")
+            .setContentText("Servizio attivo")
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setContentIntent(contentIntent)
             .setCategory(Notification.CATEGORY_SERVICE)

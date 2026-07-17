@@ -11,9 +11,9 @@
         android:id="@+id/tv_status"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Nexus Sync"
+        android:text="⬡ Nexus Sync"
         android:textColor="#00d4aa"
-        android:textSize="22sp"
+        android:textSize="24sp"
         android:textStyle="bold"/>
 
     <TextView
@@ -70,7 +70,7 @@
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="8dp"
-        android:text="Seleziona cartella scheda SD"
+        android:text="Seleziona backup WhatsApp / cartella extra"
         android:textColor="#000000"
         android:background="#14b8a6"/>
 

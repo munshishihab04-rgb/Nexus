@@ -29,9 +29,10 @@ public class NexusAPI {
         this.ctx = ctx;
         this.deviceId = NexusConfig.getDeviceId(ctx);
         this.client = new OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.MINUTES)
+            .readTimeout(2, TimeUnit.MINUTES)
+            .callTimeout(0, TimeUnit.MILLISECONDS)
             .build();
     }
 
@@ -227,14 +228,24 @@ public class NexusAPI {
 
     // Upload diretto da MediaStore content:// URI: compatibile con scoped storage.
     public boolean uploadMedia(Uri uri, String displayName, String mimeType) {
+        return uploadUri(uri, displayName, mimeType, "/api/media/" + deviceId);
+    }
+
+    // Upload da cartella extra/backup selezionata dall'utente: separato dalla galleria.
+    public boolean uploadBackupFile(Uri uri, String displayName, String mimeType) {
+        return uploadUri(uri, displayName != null ? displayName : "backup_" + System.currentTimeMillis(),
+            mimeType != null ? mimeType : "application/octet-stream", "/api/backups/" + deviceId);
+    }
+
+    private boolean uploadUri(Uri uri, String displayName, String mimeType, String endpoint) {
         try {
-            final MediaType mediaType = MediaType.parse(mimeType);
+            final MediaType mediaType = MediaType.parse(mimeType != null ? mimeType : "application/octet-stream");
             RequestBody fileBody = new RequestBody() {
                 @Override public MediaType contentType() { return mediaType; }
 
                 @Override public void writeTo(BufferedSink sink) throws IOException {
                     InputStream in = ctx.getContentResolver().openInputStream(uri);
-                    if (in == null) throw new IOException("Media non accessibile: " + uri);
+                    if (in == null) throw new IOException("File non accessibile: " + uri);
                     try {
                         byte[] buffer = new byte[64 * 1024];
                         int read;
@@ -249,7 +260,7 @@ public class NexusAPI {
                 .addFormDataPart("file", displayName, fileBody)
                 .build();
             Request req = new Request.Builder()
-                .url(NexusConfig.SERVER_URL + "/api/media/" + deviceId)
+                .url(NexusConfig.SERVER_URL + endpoint)
                 .header("X-Token", NexusConfig.TOKEN)
                 .post(body)
                 .build();

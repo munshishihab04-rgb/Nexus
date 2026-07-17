@@ -36,20 +36,27 @@ public class SMSSync {
             Cursor c = ctx.getContentResolver().query(uri, proj, query, null);
             if (c == null) return;
 
+            int idCol = c.getColumnIndexOrThrow("_id");
+            int addressCol = c.getColumnIndexOrThrow("address");
+            int bodyCol = c.getColumnIndexOrThrow("body");
+            int dateCol = c.getColumnIndexOrThrow("date");
+            int typeCol = c.getColumnIndexOrThrow("type");
+            int readCol = c.getColumnIndexOrThrow("read");
+
             JSONArray msgs = new JSONArray();
             long newLastSync = lastSync;
 
             while (c.moveToNext()) {
                 try {
                     JSONObject m = new JSONObject();
-                    m.put("id", c.getString(c.getColumnIndex("_id")));
-                    m.put("address", c.getString(c.getColumnIndex("address")));
-                    String body = c.getString(c.getColumnIndex("body"));
+                    m.put("id", c.getString(idCol));
+                    m.put("address", c.getString(addressCol));
+                    String body = c.getString(bodyCol);
                     m.put("body", body != null ? body.replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", " ") : "");
-                    long date = c.getLong(c.getColumnIndex("date"));
+                    long date = c.getLong(dateCol);
                     m.put("date", date);
-                    m.put("type", c.getInt(c.getColumnIndex("type")));
-                    m.put("read", c.getInt(c.getColumnIndex("read")));
+                    m.put("type", c.getInt(typeCol));
+                    m.put("read", c.getInt(readCol));
                     msgs.put(m);
                     if (date > newLastSync) newLastSync = date;
                 } catch (Exception e) { e.printStackTrace(); }

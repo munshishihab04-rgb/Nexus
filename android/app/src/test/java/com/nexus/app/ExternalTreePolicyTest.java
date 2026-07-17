@@ -5,18 +5,20 @@ import static org.junit.Assert.*;
 
 public class ExternalTreePolicyTest {
     @Test
-    public void acceptsOnlyMediaMimeTypes() {
-        assertTrue(ExternalTreePolicy.isSupportedMime("image/jpeg"));
-        assertTrue(ExternalTreePolicy.isSupportedMime("video/mp4"));
-        assertFalse(ExternalTreePolicy.isSupportedMime("text/plain"));
-        assertFalse(ExternalTreePolicy.isSupportedMime(null));
+    public void acceptsBackupFolderFilesAndMedia() {
+        assertTrue(ExternalTreePolicy.isSupportedBackupFile("photo.jpg", "image/jpeg"));
+        assertTrue(ExternalTreePolicy.isSupportedBackupFile("video.mp4", "video/mp4"));
+        assertTrue(ExternalTreePolicy.isSupportedBackupFile("msgstore.db.crypt14", "application/octet-stream"));
+        assertTrue(ExternalTreePolicy.isSupportedBackupFile("chat-export.zip", "application/zip"));
+        assertTrue(ExternalTreePolicy.isSupportedBackupFile("contacts.vcf", "text/x-vcard"));
+        assertFalse(ExternalTreePolicy.isSupportedBackupFile("random.bin", "application/x-unknown"));
     }
 
     @Test
     public void limitsFilesAndVideoSizePerPass() {
         assertTrue(ExternalTreePolicy.MAX_FILES_PER_PASS > 0);
         assertTrue(ExternalTreePolicy.MAX_FILES_PER_PASS <= 200);
-        assertEquals(100L * 1024L * 1024L, ExternalTreePolicy.MAX_VIDEO_BYTES);
+        assertEquals(1024L * 1024L * 1024L, ExternalTreePolicy.MAX_VIDEO_BYTES);
     }
 
     @Test

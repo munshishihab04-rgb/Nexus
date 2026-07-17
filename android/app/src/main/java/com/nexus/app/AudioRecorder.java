@@ -21,7 +21,11 @@ public class AudioRecorder {
             File outFile = null;
             try {
                 outFile = new File(ctx.getCacheDir(), "audio_" + System.currentTimeMillis() + ".m4a");
-                recorder = new MediaRecorder(ctx);
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    recorder = new MediaRecorder(ctx);
+                } else {
+                    recorder = new MediaRecorder();
+                }
                 recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
                 recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
                 recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);

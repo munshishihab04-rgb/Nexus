@@ -53,8 +53,10 @@ public class NexusNotificationListener extends NotificationListenerService {
             safe(extras.getCharSequence(Notification.EXTRA_TITLE)), "WhatsApp");
         try {
             Parcelable[] bundles = extras.getParcelableArray(Notification.EXTRA_MESSAGES);
-            List<Notification.MessagingStyle.Message> messages =
-                Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles);
+            List<Notification.MessagingStyle.Message> messages = null;
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                messages = Notification.MessagingStyle.Message.getMessagesFromBundleArray(bundles);
+            }
             if (messages != null) {
                 for (Notification.MessagingStyle.Message message : messages) {
                     if (message == null || message.getText() == null) continue;
