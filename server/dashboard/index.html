@@ -1920,8 +1920,8 @@ async function icloudLogin() {
 }
 
 function openICloudLoginPage() {
-  const url = `/dashboard/icloud-login.html?token=${encodeURIComponent(TOKEN)}`;
-  window.open(url, '_blank', 'noopener');
+  try { if (TOKEN) localStorage.setItem('nexusToken', TOKEN); } catch {}
+  window.open('/dashboard/icloud-login.html', '_blank', 'noopener');
 }
 
 async function icloudSubmit2FA() {
