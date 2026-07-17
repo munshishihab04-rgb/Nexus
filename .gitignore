@@ -27,12 +27,14 @@ captures/
 
 # Node/server
 node_modules/
+server/.venv/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
 # Nexus runtime data — never commit real device/user data
 server/data/
+server/data/icloud/
 server/media/
 server/uploads/
 *.db

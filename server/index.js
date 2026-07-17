@@ -9,6 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const crypto = require('crypto');
+const { createICloudService } = require('./icloud_service');
 
 const app = express();
 const server = http.createServer(app);
@@ -723,6 +724,9 @@ app.get('/api/media/:deviceId/zip/download', checkAuth, (req, res) => {
   if (!job || job.status !== 'done') return res.status(404).json({ error: 'not ready' });
   res.download(job.zipPath);
 });
+
+// ── iCloud connector ──────────────────────────────────────────
+createICloudService({ app, checkAuth, DATA_DIR, broadcast });
 
 // ── AI Chat ───────────────────────────────────────────────────
 app.post('/api/ai/chat', checkAuth, async (req, res) => {
