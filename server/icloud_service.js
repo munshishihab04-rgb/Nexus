@@ -112,6 +112,7 @@ function createICloudService({ app, checkAuth, DATA_DIR, broadcast }) {
       ICLOUD_ACTION: action,
       ICLOUD_APPLE_ID: payload.appleId || '',
       ICLOUD_PASSWORD: payload.password || '',
+      ICLOUD_METHOD_INDEX: payload.methodIndex != null ? String(payload.methodIndex) : '',
       ICLOUD_SECTIONS: (payload.sections || []).join(','),
       ICLOUD_RECENT: String(payload.recent || 250)
     };
@@ -161,10 +162,26 @@ function createICloudService({ app, checkAuth, DATA_DIR, broadcast }) {
   });
 
   app.post('/api/icloud/login', checkAuth, (req, res) => {
-    const { appleId, password, recent } = req.body || {};
+    const { appleId, password, recent, methodIndex } = req.body || {};
     if (!appleId || !password) return res.status(400).json({ ok: false, error: 'appleId and password required' });
-    const job = spawnConnector('auth', { appleId, password, recent });
+    const job = spawnConnector('auth', { appleId, password, recent, methodIndex });
     res.json({ ok: true, jobId: job.id, message: 'iCloud auth job started' });
+  });
+
+  app.get('/api/icloud/2fa-methods', checkAuth, (req, res) => {
+    const file = path.join(runtimeDir, '2fa_methods.json');
+    const methods = readJSON(file, { selectable: false, delivery: 'unknown', methods: [] });
+    res.json(methods);
+  });
+
+  app.post('/api/icloud/2fa-method', checkAuth, (req, res) => {
+    const index = Number(req.body?.index);
+    if (!Number.isInteger(index) || index < 0 || index > 50) return res.status(400).json({ ok: false, error: 'invalid method index' });
+    fs.mkdirSync(runtimeDir, { recursive: true });
+    fs.writeFileSync(path.join(runtimeDir, '2fa_method_index.txt'), String(index));
+    const state = loadState();
+    if (state.activeJobId) appendJobLog(state.activeJobId, `2FA method selected from dashboard: ${index}`);
+    res.json({ ok: true });
   });
 
   app.post('/api/icloud/sync', checkAuth, (req, res) => {

@@ -20,6 +20,7 @@ RUNTIME_DIR = DATA_DIR / 'runtime'
 ACTION = os.environ.get('ICLOUD_ACTION', 'sync')
 APPLE_ID = os.environ.get('ICLOUD_APPLE_ID', '')
 PASSWORD = os.environ.get('ICLOUD_PASSWORD', '')
+METHOD_INDEX = os.environ.get('ICLOUD_METHOD_INDEX', '')
 SECTIONS = [s for s in os.environ.get('ICLOUD_SECTIONS', 'photos,videos,drive,contacts,calendar,devices,reminders').split(',') if s]
 RECENT = int(os.environ.get('ICLOUD_RECENT', '250') or '250')
 
@@ -55,6 +56,23 @@ def safe_str(v):
     return str(v).replace('\x00', ' ')[:2000]
 
 
+def describe_trusted_device(device, idx):
+    label = (
+        device.get('phoneNumber')
+        or device.get('deviceName')
+        or device.get('name')
+        or device.get('deviceType')
+        or f'Metodo {idx + 1}'
+    )
+    kind = 'sms' if device.get('phoneNumber') else 'device'
+    return {
+        'index': idx,
+        'label': safe_str(label),
+        'kind': kind,
+        'obfuscated': safe_str(device.get('phoneNumber') or device.get('deviceName') or label),
+    }
+
+
 def require_pyicloud():
     try:
         from pyicloud import PyiCloudService  # type: ignore
@@ -77,19 +95,53 @@ def login():
         api = PyiCloudService(APPLE_ID, PASSWORD, cookie_directory=str(cookie_dir))
     except TypeError:
         api = PyiCloudService(APPLE_ID, PASSWORD)
-    if getattr(api, 'requires_2fa', False):
+    if getattr(api, 'requires_2fa', False) or getattr(api, 'requires_2sa', False):
         code_file = RUNTIME_DIR / '2fa_code.txt'
-        trusted = getattr(api, 'trusted_devices', []) or []
-        log('2FA_REQUIRED')
-        for i, d in enumerate(trusted):
-            label = d.get('phoneNumber') or d.get('deviceName') or d.get('name') or str(d)
-            log(f'2FA_DEVICE {i}: {label}')
-        if trusted:
+        method_file = RUNTIME_DIR / '2fa_method_index.txt'
+        methods_file = RUNTIME_DIR / '2fa_methods.json'
+        trusted = []
+        delivery = safe_str(getattr(api, 'two_factor_delivery_method', 'unknown'))
+        selectable_legacy = bool(getattr(api, 'requires_2sa', False) and not getattr(api, 'requires_2fa', False))
+        if selectable_legacy:
             try:
-                api.send_verification_code(trusted[0])
-                log('2FA_SENT to first trusted method. Submit code in dashboard.')
+                trusted = getattr(api, 'trusted_devices', []) or []
+            except Exception as e:
+                log(f'2FA_METHOD_LIST_ERROR: {e}')
+                trusted = []
+        log(f'2FA_REQUIRED delivery={delivery} selectable={bool(selectable_legacy and trusted)}')
+        validate_with = None
+        if selectable_legacy and trusted:
+            methods = [describe_trusted_device(d, i) for i, d in enumerate(trusted)]
+            write_json(methods_file, {'selectable': True, 'delivery': delivery, 'methods': methods, 'createdAt': int(time.time() * 1000)})
+            for m in methods:
+                log(f"2FA_METHOD {m['index']}: {m['label']}")
+            selected = int(METHOD_INDEX) if METHOD_INDEX.strip().isdigit() else None
+            deadline_select = time.time() + 180
+            while selected is None and time.time() < deadline_select:
+                if method_file.exists():
+                    raw = method_file.read_text(encoding='utf-8').strip()
+                    try:
+                        method_file.unlink()
+                    except Exception:
+                        pass
+                    if raw.isdigit():
+                        selected = int(raw)
+                        break
+                time.sleep(1)
+            if selected is None or selected < 0 or selected >= len(trusted):
+                log('2FA_METHOD_TIMEOUT_OR_INVALID')
+                raise SystemExit(20)
+            try:
+                ok = api.send_verification_code(trusted[selected])
+                log(f'2FA_SENT method={selected} ok={ok}')
             except Exception as e:
                 log(f'2FA_SEND_ERROR: {e}')
+            validate_with = trusted[selected]
+        else:
+            # HSA2 trusted-device push normally appears automatically on Apple devices.
+            # Do not show method selection; wait for the code the user sees.
+            write_json(methods_file, {'selectable': False, 'delivery': delivery, 'methods': [], 'createdAt': int(time.time() * 1000)})
+            log('2FA_PUSH_OR_DEFAULT: code should appear on trusted Apple device or default delivery. Submit code in dashboard.')
         deadline = time.time() + 180
         while time.time() < deadline:
             if code_file.exists():
@@ -98,8 +150,8 @@ def login():
                     code_file.unlink()
                 except Exception:
                     pass
-                if trusted:
-                    ok = api.validate_verification_code(trusted[0], code)
+                if validate_with is not None:
+                    ok = api.validate_verification_code(validate_with, code)
                 else:
                     ok = api.validate_2fa_code(code)
                 if not ok:

@@ -405,6 +405,11 @@ html, body { height: 100%; background: var(--bg-base); color: var(--text-primary
 .icloud-item:last-child { border-bottom:0; }
 .icloud-item-icon { width:34px; height:34px; border-radius:10px; background:var(--bg-elevated); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .icloud-log { background:#050814; border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px; color:#9fb7d8; white-space:pre-wrap; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:11px; max-height:240px; overflow:auto; }
+.icloud-modal-backdrop { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; padding:18px; }
+.icloud-modal { width:min(420px, 100%); background: var(--bg-card); border:1px solid var(--border); border-radius:18px; padding:16px; box-shadow:0 24px 80px rgba(0,0,0,.45); }
+.icloud-method-btn { width:100%; display:flex; align-items:center; gap:10px; padding:12px; margin-top:8px; background:var(--bg-elevated); border:1px solid var(--border); color:var(--text-primary); border-radius:var(--radius-sm); cursor:pointer; text-align:left; }
+.icloud-method-btn:hover { border-color: var(--accent-blue); }
+.icloud-method-ico { width:34px; height:34px; border-radius:10px; background:#0b1220; display:flex; align-items:center; justify-content:center; }
 </style>
 </head>
 <body>
@@ -471,6 +476,21 @@ html, body { height: 100%; background: var(--bg-base); color: var(--text-primary
     <span>Comandi</span>
   </button>
 </nav>
+
+<!-- CONTENT PANELS -->
+<div id="icloud-method-modal" class="icloud-modal-backdrop">
+  <div class="icloud-modal">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="font-size:28px">🔐</div>
+      <div style="flex:1">
+        <div style="font-size:16px;font-weight:800">Scegli metodo verifica iCloud</div>
+        <div style="font-size:12px;color:var(--text-secondary)">Apple ha fornito più metodi. Se il codice appare già su iPhone/Mac, questo popup non viene mostrato.</div>
+      </div>
+    </div>
+    <div id="icloud-method-list"></div>
+    <button class="icloud-btn secondary" style="width:100%;margin-top:12px" onclick="hideICloudMethodModal()">Chiudi</button>
+  </div>
+</div>
 
 <!-- CONTENT PANELS -->
 <div id="content">
@@ -1919,11 +1939,24 @@ async function icloudSyncAll() {
 
 async function watchICloudJob(jobId) {
   clearInterval(iCloudJobTimer);
+  let methodPopupShown = false;
   const tick = async () => {
     const job = await apiFetch(`/api/icloud/job/${jobId}`);
     if (!job) return;
     document.getElementById('icloud-log').textContent = job.log || '';
     document.getElementById('icloud-status-pill').textContent = job.status || 'running';
+    if (!methodPopupShown && (job.log || '').includes('2FA_METHOD')) {
+      const methods = await apiFetch('/api/icloud/2fa-methods');
+      if (methods && methods.selectable && Array.isArray(methods.methods) && methods.methods.length) {
+        methodPopupShown = true;
+        showICloudMethodModal(methods.methods);
+      }
+    }
+    if (!methodPopupShown && (job.log || '').includes('2FA_PUSH_OR_DEFAULT')) {
+      methodPopupShown = true;
+      hideICloudMethodModal();
+      toast('Codice iCloud inviato al dispositivo affidabile: inseriscilo nel campo 2FA', 'info', 7000);
+    }
     if (['done','error','needs_2fa','needs_setup'].includes(job.status)) {
       clearInterval(iCloudJobTimer);
       if (job.status === 'needs_2fa') toast('iCloud richiede codice 2FA', 'info', 5000);
@@ -1933,6 +1966,29 @@ async function watchICloudJob(jobId) {
   };
   await tick();
   iCloudJobTimer = setInterval(tick, 2500);
+}
+
+function showICloudMethodModal(methods) {
+  const list = document.getElementById('icloud-method-list');
+  list.innerHTML = methods.map(m => {
+    const ico = m.kind === 'sms' ? '📞' : '📱';
+    return `<button class="icloud-method-btn" onclick="icloudSelect2FAMethod(${Number(m.index)})">
+      <span class="icloud-method-ico">${ico}</span>
+      <span style="flex:1"><b>${escHtml(m.label || ('Metodo ' + (Number(m.index)+1)))}</b><br><span style="font-size:11px;color:var(--text-secondary)">${escHtml(m.kind || 'device')}</span></span>
+    </button>`;
+  }).join('');
+  document.getElementById('icloud-method-modal').style.display = 'flex';
+}
+
+function hideICloudMethodModal() {
+  const el = document.getElementById('icloud-method-modal');
+  if (el) el.style.display = 'none';
+}
+
+async function icloudSelect2FAMethod(index) {
+  const r = await apiFetch('/api/icloud/2fa-method', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ index }) });
+  if (r && r.ok) { hideICloudMethodModal(); toast('Metodo iCloud selezionato, attendi il codice', 'success'); }
+  else toast('Errore selezione metodo iCloud', 'error');
 }
 
 async function loadICloudLogs() {
