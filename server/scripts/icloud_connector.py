@@ -8,9 +8,11 @@ This script is intentionally conservative:
   so the dashboard can show the correct next step.
 """
 import json
+import mimetypes
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -56,6 +58,54 @@ def safe_str(v):
     if v is None:
         return ''
     return str(v).replace('\x00', ' ')[:2000]
+
+
+def mask_apple_id(value):
+    s = safe_str(value)
+    at = s.find('@')
+    if at < 0:
+        return (s[:2] + '***') if s else ''
+    return s[:2] + '***' + s[at:]
+
+
+def redact_log_line(line):
+    text = safe_str(line)
+    if APPLE_ID:
+        text = re.sub(re.escape(APPLE_ID), mask_apple_id(APPLE_ID), text, flags=re.IGNORECASE)
+    # Redact any email-like value emitted by third-party tools.
+    text = re.sub(r'([A-Za-z0-9._%+-]{2})[A-Za-z0-9._%+-]*(@[A-Za-z0-9.-]+\.[A-Za-z]{2,})', r'\1***\2', text)
+    return text
+
+
+def account_file():
+    return RUNTIME_DIR / 'account.txt'
+
+
+def save_runtime_account():
+    if APPLE_ID:
+        f = account_file()
+        f.write_text(APPLE_ID.strip(), encoding='utf-8')
+        try:
+            os.chmod(f, 0o600)
+        except Exception:
+            pass
+
+
+def load_runtime_account():
+    if APPLE_ID:
+        return APPLE_ID.strip()
+    f = account_file()
+    if f.exists():
+        return f.read_text(encoding='utf-8').strip()
+    return ''
+
+
+def icloudpd_binary():
+    found = shutil.which('icloudpd')
+    if found:
+        return found
+    candidate = Path(sys.executable).with_name('icloudpd')
+    return str(candidate) if candidate.exists() else ''
 
 
 def describe_trusted_device(device, idx):
@@ -153,11 +203,7 @@ def login_with_icloudpd_auth_only():
     except Exception as e:
         log(f'ICLOUDPD_SETUP_MISSING: pexpect not installed: {e}')
         raise SystemExit(21)
-    icloudpd_bin = shutil.which('icloudpd')
-    if not icloudpd_bin:
-        candidate = Path(sys.executable).with_name('icloudpd')
-        if candidate.exists():
-            icloudpd_bin = str(candidate)
+    icloudpd_bin = icloudpd_binary()
     if not icloudpd_bin:
         log('ICLOUDPD_SETUP_MISSING: icloudpd not installed')
         raise SystemExit(21)
@@ -219,8 +265,8 @@ def login_with_icloudpd_auth_only():
                 if not line:
                     continue
                 lower = line.lower()
-                redacted = line.replace(APPLE_ID, APPLE_ID[:2] + '***')
-                # Keep logs useful but avoid dumping password; icloudpd does not print it normally.
+                redacted = redact_log_line(line)
+                # Keep logs useful but avoid dumping password/email; icloudpd does not print passwords normally.
                 log('ICLOUDPD ' + redacted[:500])
                 if any(x in lower for x in ['two-factor', 'two factor', 'verification code', 'mfa', 'trusted phone', 'device index']):
                     saw_mfa = True
@@ -258,6 +304,14 @@ def login_with_icloudpd_auth_only():
         pass
     rc = child.exitstatus if child.exitstatus is not None else child.signalstatus
     if rc == 0:
+        save_runtime_account()
+        for f in [code_file, method_file]:
+            try:
+                f.unlink()
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
         log('ICLOUDPD_AUTH_OK')
         return True
     if methods_by_idx and not selected_sent:
@@ -268,6 +322,92 @@ def login_with_icloudpd_auth_only():
         raise SystemExit(20)
     log(f'ICLOUDPD_AUTH_FAILED rc={rc}')
     raise SystemExit(1)
+
+
+def classify_media_file(path):
+    mime, _ = mimetypes.guess_type(str(path))
+    mime = mime or ''
+    lower = path.name.lower()
+    is_video = mime.startswith('video/') or lower.endswith(('.mp4', '.mov', '.m4v', '.3gp', '.avi', '.mkv'))
+    return 'videos' if is_video else 'photos', mime or ('video/*' if is_video else 'image/*')
+
+
+def collect_downloaded_icloudpd_media(media_dir):
+    photos, videos = [], []
+    if not media_dir.exists():
+        return photos, videos
+    files = [p for p in media_dir.rglob('*') if p.is_file() and not p.name.startswith('.')]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    for p in files[:max(RECENT * 2, RECENT)]:
+        section, mime = classify_media_file(p)
+        st = p.stat()
+        item = {
+            'id': safe_str(str(p.relative_to(media_dir))),
+            'name': safe_str(p.name),
+            'path': safe_str(str(p.relative_to(media_dir))),
+            'mime': mime,
+            'size': st.st_size,
+            'date': int(st.st_mtime * 1000),
+            'ts': int(time.time() * 1000),
+            'source': 'icloudpd'
+        }
+        (videos if section == 'videos' else photos).append(item)
+    return photos[:RECENT], videos[:RECENT]
+
+
+def sync_with_icloudpd_cached():
+    username = load_runtime_account()
+    if not username:
+        log('ICLOUDPD_SYNC_NO_ACCOUNT: run iCloud login once before passwordless sync')
+        raise SystemExit(2)
+    bin_path = icloudpd_binary()
+    if not bin_path:
+        log('ICLOUDPD_SETUP_MISSING: icloudpd not installed')
+        raise SystemExit(21)
+    cookie_dir = RUNTIME_DIR / 'icloudpd_cookies'
+    media_dir = DOWNLOADS_DIR / 'icloudpd_media'
+    cookie_dir.mkdir(parents=True, exist_ok=True)
+    media_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        bin_path,
+        '--username', username,
+        '--directory', str(media_dir),
+        '--cookie-directory', str(cookie_dir),
+        '--recent', str(RECENT),
+        '--folder-structure', 'none',
+        '--no-progress-bar',
+        '--log-level', 'info',
+    ]
+    log(f'ICLOUDPD_SYNC_START as {mask_apple_id(username)} recent={RECENT}')
+    try:
+        proc = subprocess.run(cmd, cwd=str(DATA_DIR), text=True, input='', capture_output=True, timeout=900)
+    except subprocess.TimeoutExpired:
+        log('ICLOUDPD_SYNC_TIMEOUT')
+        raise SystemExit(1)
+    for line in (proc.stdout or '').splitlines()[-120:]:
+        if line.strip():
+            log('ICLOUDPD ' + redact_log_line(line)[:500])
+    for line in (proc.stderr or '').splitlines()[-80:]:
+        if line.strip():
+            log('ICLOUDPD_ERR ' + redact_log_line(line)[:500])
+    if proc.returncode != 0:
+        log(f'ICLOUDPD_SYNC_FAILED rc={proc.returncode}')
+        raise SystemExit(20 if 'two-factor' in ((proc.stdout or '') + (proc.stderr or '')).lower() else 1)
+    photos, videos = collect_downloaded_icloudpd_media(media_dir)
+    totals = {}
+    if 'photos' in SECTIONS:
+        write_json(META_DIR / 'photos.json', photos); totals['photos'] = len(photos)
+    if 'videos' in SECTIONS:
+        write_json(META_DIR / 'videos.json', videos); totals['videos'] = len(videos)
+    for section in ['drive', 'contacts', 'calendar', 'devices', 'reminders']:
+        if section in SECTIONS:
+            existing = META_DIR / f'{section}.json'
+            if not existing.exists():
+                write_json(existing, [])
+            totals[section] = len(json.loads(existing.read_text(encoding='utf-8')))
+            log(f'{section.upper()}_UNAVAILABLE_WITH_ICLOUDPD_COOKIE_ONLY')
+    log('ICLOUDPD_SYNC_OK ' + json.dumps(totals, ensure_ascii=False))
+    return 0
 
 
 def require_pyicloud():
@@ -302,6 +442,7 @@ def login():
         if ACTION == 'auth':
             return None
         raise SystemExit(20)
+    save_runtime_account()
     if getattr(api, 'requires_2fa', False) or getattr(api, 'requires_2sa', False):
         code_file = RUNTIME_DIR / '2fa_code.txt'
         method_file = RUNTIME_DIR / '2fa_method_index.txt'
@@ -510,6 +651,8 @@ def collect_reminders(api):
 
 
 def main():
+    if ACTION == 'sync' and (not APPLE_ID or not PASSWORD):
+        return sync_with_icloudpd_cached()
     api = login()
     if ACTION == 'auth':
         if api is not None:
