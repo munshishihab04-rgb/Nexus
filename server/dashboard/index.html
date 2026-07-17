@@ -1940,6 +1940,7 @@ async function icloudSyncAll() {
 async function watchICloudJob(jobId) {
   clearInterval(iCloudJobTimer);
   let methodPopupShown = false;
+  let default2FANotified = false;
   const tick = async () => {
     const job = await apiFetch(`/api/icloud/job/${jobId}`);
     if (!job) return;
@@ -1952,9 +1953,8 @@ async function watchICloudJob(jobId) {
         showICloudMethodModal(methods.methods);
       }
     }
-    if (!methodPopupShown && (job.log || '').includes('2FA_PUSH_OR_DEFAULT')) {
-      methodPopupShown = true;
-      hideICloudMethodModal();
+    if (!methodPopupShown && (job.log || '').includes('2FA_PUSH_OR_DEFAULT') && !default2FANotified) {
+      default2FANotified = true;
       toast('Codice iCloud inviato al dispositivo affidabile: inseriscilo nel campo 2FA', 'info', 7000);
     }
     if (['done','error','needs_2fa','needs_setup'].includes(job.status)) {

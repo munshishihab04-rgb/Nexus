@@ -180,7 +180,7 @@ function createICloudService({ app, checkAuth, DATA_DIR, broadcast }) {
     fs.mkdirSync(runtimeDir, { recursive: true });
     fs.writeFileSync(path.join(runtimeDir, '2fa_method_index.txt'), String(index));
     const state = loadState();
-    if (state.activeJobId) appendJobLog(state.activeJobId, `2FA method selected from dashboard: ${index}`);
+    if (state.activeJobId) appendJobLog(state.activeJobId, `2FA_METHOD_SELECTED_FROM_DASHBOARD index=${index}`);
     res.json({ ok: true });
   });
 

@@ -197,8 +197,10 @@ def login_with_icloudpd_auth_only():
     child = pexpect.spawn(cmd[0], cmd[1:], encoding='utf-8', timeout=1, echo=False)
     methods_by_idx = {}
     selected_sent = False
+    default_delivery_announced = False
     code_sent = False
     saw_mfa = False
+    mfa_seen_at = None
     buffer = ''
     deadline = time.time() + 300
     while time.time() < deadline:
@@ -222,6 +224,8 @@ def login_with_icloudpd_auth_only():
                 log('ICLOUDPD ' + redacted[:500])
                 if any(x in lower for x in ['two-factor', 'two factor', 'verification code', 'mfa', 'trusted phone', 'device index']):
                     saw_mfa = True
+                    if mfa_seen_at is None:
+                        mfa_seen_at = time.time()
                 method = parse_icloudpd_method_line(line)
                 if method and not code_sent:
                     methods_by_idx[method['index']] = method
@@ -235,12 +239,14 @@ def login_with_icloudpd_auth_only():
                 child.sendline(str(token))
                 selected_sent = True
                 log(f"2FA_METHOD_SENT index={chosen['index']}")
-        # Some icloudpd flows ask for a code after a choice, others after default delivery.
-        if saw_mfa and not methods_by_idx and not selected_sent:
+        # Some icloudpd flows ask for a code after a default trusted-device delivery.
+        # Do NOT mark selected_sent immediately when the first 2FA line appears: icloudpd often
+        # prints selectable SMS choices 1-2 seconds later. Wait briefly before falling back.
+        if saw_mfa and not methods_by_idx and not default_delivery_announced and mfa_seen_at and (time.time() - mfa_seen_at) > 3:
             write_json(methods_file, {'selectable': False, 'delivery': 'icloudpd_default', 'methods': [], 'createdAt': int(time.time()*1000)})
-            selected_sent = True
+            default_delivery_announced = True
             log('2FA_PUSH_OR_DEFAULT: icloudpd is waiting for verification code. Submit code in dashboard.')
-        if selected_sent and not code_sent:
+        if (selected_sent or default_delivery_announced) and not code_sent:
             code = wait_for_dashboard_code(code_file, timeout=1)
             if code:
                 child.sendline(code)
