@@ -190,6 +190,27 @@ def wait_for_dashboard_code(code_file, timeout=180):
     return None
 
 
+def valid_icloudpd_session(cookie_dir):
+    """Return True only when icloudpd saved a real authenticated session.
+
+    Some icloudpd/pyicloud paths can exit 0 after an Apple 401/debug error and
+    leave only a partial session file (client_id/scnt/session_id). That is not
+    enough for later passwordless sync and must not be reported as AUTH_OK.
+    """
+    try:
+        session_files = list(Path(cookie_dir).glob('*.session'))
+    except Exception:
+        return False
+    for f in session_files:
+        try:
+            data = json.loads(f.read_text(encoding='utf-8'))
+        except Exception:
+            continue
+        if data.get('session_token') or data.get('trust_token') or data.get('dsInfo'):
+            return True
+    return False
+
+
 def login_with_icloudpd_auth_only():
     """Fallback auth flow using icloudpd + pexpect.
 
@@ -226,6 +247,15 @@ def login_with_icloudpd_auth_only():
     download_dir = DOWNLOADS_DIR / 'icloudpd_auth_probe'
     cookie_dir.mkdir(parents=True, exist_ok=True)
     download_dir.mkdir(parents=True, exist_ok=True)
+    # Fresh login should not reuse a stale/incomplete cookie from a previous failed attempt.
+    for stale in cookie_dir.glob('*'):
+        try:
+            if stale.is_file():
+                stale.unlink()
+            elif stale.is_dir():
+                shutil.rmtree(stale)
+        except Exception:
+            pass
 
     cmd = [
         icloudpd_bin,
@@ -245,6 +275,7 @@ def login_with_icloudpd_auth_only():
     selected_sent = False
     default_delivery_announced = False
     code_sent = False
+    fatal_auth_error = False
     saw_mfa = False
     mfa_seen_at = None
     buffer = ''
@@ -268,6 +299,8 @@ def login_with_icloudpd_auth_only():
                 redacted = redact_log_line(line)
                 # Keep logs useful but avoid dumping password/email; icloudpd does not print passwords normally.
                 log('ICLOUDPD ' + redacted[:500])
+                if 'invalid email/password combination' in lower or 'check the account information you entered' in lower:
+                    fatal_auth_error = True
                 if any(x in lower for x in ['two-factor', 'two factor', 'verification code', 'mfa', 'trusted phone', 'device index']):
                     saw_mfa = True
                     if mfa_seen_at is None:
@@ -304,6 +337,9 @@ def login_with_icloudpd_auth_only():
         pass
     rc = child.exitstatus if child.exitstatus is not None else child.signalstatus
     if rc == 0:
+        if fatal_auth_error or not valid_icloudpd_session(cookie_dir):
+            log('ICLOUDPD_AUTH_INCOMPLETE_OR_REJECTED: Apple did not provide a valid authenticated session')
+            raise SystemExit(1)
         save_runtime_account()
         for f in [code_file, method_file]:
             try:

@@ -225,7 +225,9 @@
           const job=await api('/api/icloud/job/'+encodeURIComponent(jobId));
           $('log').textContent = cleanLog(job.log || ''); $('log').scrollTop = $('log').scrollHeight;
           const log=job.log||'';
-          if(log.includes('2FA_METHOD') || log.includes('a:') || log.includes('trusted phone')) { await refreshMethods(true); }
+          if(job.status === 'running' || job.status === 'needs_2fa' || log.includes('2FA_METHOD') || log.includes('a:') || log.includes('trusted phone')) {
+            await refreshMethods(true);
+          }
           if(log.includes('2FA_METHOD_SENT')) { setStatus('run','Codice richiesto: inseriscilo'); $('twoFABox').classList.remove('hidden'); }
           if(log.includes('2FA_PUSH_OR_DEFAULT') && !defaultNotified){ defaultNotified=true; $('twoFABox').classList.remove('hidden'); setStatus('run','Codice inviato al dispositivo fidato'); toast('Inserisci il codice mostrato su iPhone/dispositivo'); }
           if(log.includes('2FA_CODE_SENT')) setStatus('run','Verifica codice…');
