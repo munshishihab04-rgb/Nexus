@@ -19,6 +19,18 @@
       transition: background-color 5000s ease-in-out 0s;
     }
     .glass-scroll::-webkit-scrollbar{width:8px}.glass-scroll::-webkit-scrollbar-thumb{background:#3a3a3c;border-radius:999px}.glass-scroll::-webkit-scrollbar-track{background:transparent}
+    
+    /* UX enhancements */
+    .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .modal-enter { animation: modalIn 0.25s ease-out forwards; }
+    @keyframes modalIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+    
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    .shake { animation: shake 0.4s ease-in-out; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
   </style>
 </head>
 <body class="bg-black text-white min-h-screen flex flex-col items-center justify-center px-4 py-8 relative overflow-hidden">
@@ -77,7 +89,7 @@
 
       <!-- Buttons -->
       <div class="space-y-3 pt-2">
-        <button id="loginBtn" onclick="startLogin()" class="w-full bg-[#0a84ff] hover:bg-[#0077ed] text-white text-[17px] font-medium py-3 rounded-xl transition-all active:scale-[0.98]">
+        <button id="loginBtn" onclick="startLogin()" class="w-full bg-[#0a84ff] hover:bg-[#0077ed] disabled:bg-[#0a84ff]/60 text-white text-[17px] font-medium py-3 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center">
           Accedi
         </button>
         <button onclick="startLoginTrusted()" class="w-full bg-[#1c1c1e] hover:bg-[#2c2c2e] text-white text-[17px] font-medium py-3 rounded-xl border border-[#3a3a3c] transition-all active:scale-[0.98] flex items-center justify-center gap-2">
@@ -91,15 +103,15 @@
       </div>
 
       <!-- 2FA -->
-      <div id="twoFABox" class="hidden space-y-3 pt-2">
+      <div id="twoFABox" class="hidden space-y-3 pt-2 fade-in">
         <div class="bg-[#1c1c1e] rounded-xl overflow-hidden border border-[#3a3a3c] focus-within:border-[#0a84ff] transition-colors duration-200">
           <input id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="Codice di verifica" class="w-full bg-transparent text-white text-[22px] tracking-[0.18em] text-center px-4 py-3.5 outline-none">
         </div>
-        <button onclick="submit2FA()" class="w-full bg-white hover:bg-[#f2f2f7] text-black text-[17px] font-medium py-3 rounded-xl transition-all active:scale-[0.98]">Verifica codice</button>
-        <button onclick="refreshMethods()" class="w-full bg-transparent hover:bg-white/5 text-[#0a84ff] text-[15px] font-medium py-2 rounded-xl transition-all">Scegli numero/metodo 2FA</button>
+        <button id="verify2faBtn" onclick="submit2FA()" class="w-full bg-white hover:bg-[#f2f2f7] text-black text-[17px] font-medium py-3 rounded-xl transition-all active:scale-[0.98]">Verifica codice</button>
+        <button id="refresh2faBtn" onclick="refreshMethods()" class="w-full bg-transparent hover:bg-white/5 text-[#0a84ff] text-[15px] font-medium py-2 rounded-xl transition-all">Scegli numero/metodo 2FA</button>
       </div>
 
-      <div id="connectedBox" class="hidden rounded-xl border border-[#30d158]/30 bg-[#30d158]/10 px-4 py-3 text-center">
+      <div id="connectedBox" class="hidden rounded-xl border border-[#30d158]/30 bg-[#30d158]/10 px-4 py-3 text-center fade-in">
         <div class="text-[13px] text-[#8e8e93]">Account collegato</div>
         <div id="connectedAccount" class="text-[17px] font-semibold text-white mt-0.5"></div>
       </div>
@@ -114,7 +126,7 @@
       </div>
     </div>
 
-    <div id="logPanel" class="hidden w-full mt-4 rounded-xl border border-[#3a3a3c] bg-[#111113]/95 overflow-hidden">
+    <div id="logPanel" class="hidden w-full mt-4 rounded-xl border border-[#3a3a3c] bg-[#111113]/95 overflow-hidden fade-in">
       <div class="flex items-center justify-between px-4 py-3 border-b border-[#2c2c2e]">
         <div class="text-[14px] font-medium text-[#e5e5ea]">Log live Nexus</div>
         <button onclick="loadLogs()" class="text-[13px] text-[#0a84ff]">aggiorna</button>
@@ -125,10 +137,10 @@
 
   <!-- Method modal -->
   <div id="methodModal" class="hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-lg items-center justify-center px-4">
-    <div class="w-full max-w-[390px] rounded-2xl border border-[#3a3a3c] bg-[#1c1c1e] p-5 shadow-2xl">
+    <div class="w-full max-w-[390px] rounded-2xl border border-[#3a3a3c] bg-[#1c1c1e] p-5 shadow-2xl modal-enter">
       <h2 class="text-[21px] font-semibold tracking-tight mb-2">Scegli dove ricevere il codice</h2>
       <p class="text-[13px] text-[#8e8e93] leading-relaxed mb-4">Apple ha restituito più metodi verificabili. Seleziona il numero/dispositivo corretto.</p>
-      <div id="methodList" class="space-y-2"></div>
+      <div id="methodList" class="space-y-2 max-h-[320px] overflow-y-auto glass-scroll pr-1"></div>
       <button onclick="hideMethods()" class="mt-4 w-full bg-[#2c2c2e] hover:bg-[#3a3a3c] text-white text-[15px] font-medium py-2.5 rounded-xl transition-all">Chiudi</button>
     </div>
   </div>
@@ -171,7 +183,7 @@
       localStorage.setItem('nexusToken', TOKEN);
       history.replaceState(null, '', location.pathname);
     }
-    let activeJob = null, pollTimer = null, popupShownForJob = null, defaultNotified = false;
+    let activeJob = null, pollTimer = null, popupShownForJob = null, defaultNotified = false, methodsPromptedForJob = null;
     const $ = id => document.getElementById(id);
 
     function tokenQS(){ return 'token=' + encodeURIComponent(TOKEN); }
@@ -182,7 +194,7 @@
       if(!res.ok) throw new Error(data.error || data.message || ('HTTP '+res.status));
       return data;
     }
-    function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'),2800); }
+    function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'),3200); }
     function setStatus(kind,msg){
       $('dot').className = 'w-2 h-2 rounded-full ' + (kind === 'ok' ? 'bg-[#30d158]' : kind === 'run' ? 'bg-[#0a84ff] animate-pulse' : kind === 'err' ? 'bg-[#ff453a]' : 'bg-[#636366]');
       $('statusText').textContent = msg;
@@ -206,50 +218,130 @@
       $('accountBadge').classList.remove('hidden');
     }
 
+    // UX: Enter to submit
+    $('appleId').addEventListener('keydown', e => { if(e.key==='Enter') $('password').focus(); });
+    $('password').addEventListener('keydown', e => { if(e.key==='Enter') startLogin(); });
+    $('code').addEventListener('keydown', e => { if(e.key==='Enter') submit2FA(); });
+
+    // UX: Close modal with Escape
+    document.addEventListener('keydown', e => {
+      if(e.key==='Escape' && !$('methodModal').classList.contains('hidden')) hideMethods();
+    });
+
+    function setLoading(btnId, loading){
+      const btn = $(btnId);
+      if(loading){
+        btn.disabled = true;
+        if(!btn.dataset.originalText) btn.dataset.originalText = btn.textContent.trim();
+        btn.innerHTML = '<span class="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 align-middle"></span>' + btn.dataset.originalText;
+      } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || btn.textContent;
+      }
+    }
+
     async function startLogin(){
       if(!TOKEN) return toast('Sessione Nexus non autorizzata: apri questa pagina dalla dashboard una volta.');
       const appleId=$('appleId').value.trim(); const password=$('password').value;
-      if(!appleId || !password) return toast('Inserisci Apple ID e password');
-      setStatus('run','Avvio login…'); defaultNotified=false; popupShownForJob=null; showLog();
+      if(!appleId || !password){
+        $('appleId').parentElement.classList.add('shake');
+        setTimeout(()=>$('appleId').parentElement.classList.remove('shake'), 400);
+        return toast('Inserisci Apple ID e password');
+      }
+      setLoading('loginBtn', true);
+      setStatus('run','Avvio login…'); defaultNotified=false; popupShownForJob=null; methodsPromptedForJob=null; showLog();
       try{
         const r=await api('/api/icloud/login',{method:'POST',body:JSON.stringify({appleId,password,recent:100})});
-        activeJob=r.jobId; $('twoFABox').classList.remove('hidden'); $('password').value=''; watchJob(activeJob);
-      }catch(e){ setStatus('err',e.message); toast(e.message); }
+        activeJob=r.jobId; 
+        $('twoFABox').classList.remove('hidden'); 
+        // UX: auto-focus 2FA code field
+        setTimeout(()=>$('code').focus(), 100);
+        $('password').value=''; 
+        watchJob(activeJob);
+      }catch(e){ 
+        setStatus('err',e.message); 
+        toast(e.message); 
+      } finally {
+        setLoading('loginBtn', false);
+      }
     }
-    function startLoginTrusted(){ toast('Se Apple invia codice su iPhone/dispositivo fidato, inseriscilo nel campo verifica.'); startLogin(); }
+    
+    function startLoginTrusted(){ 
+      toast('Se Apple invia codice su iPhone/dispositivo fidato, inseriscilo nel campo verifica.'); 
+      startLogin(); 
+    }
 
     async function watchJob(jobId){
       clearInterval(pollTimer);
       async function tick(){
         try{
           const job=await api('/api/icloud/job/'+encodeURIComponent(jobId));
-          $('log').textContent = cleanLog(job.log || ''); $('log').scrollTop = $('log').scrollHeight;
+          const logText = cleanLog(job.log || '');
+          $('log').textContent = logText; 
+          $('log').scrollTop = $('log').scrollHeight;
           const log=job.log||'';
+          
+          // Auto-show methods when backend signals 2FA methods available
           if(job.status === 'running' || job.status === 'needs_2fa' || log.includes('2FA_METHOD') || log.includes('a:') || log.includes('trusted phone')) {
             await refreshMethods(true);
           }
-          if(log.includes('2FA_METHOD_SENT')) { setStatus('run','Codice richiesto: inseriscilo'); $('twoFABox').classList.remove('hidden'); }
-          if(log.includes('2FA_PUSH_OR_DEFAULT') && !defaultNotified){ defaultNotified=true; $('twoFABox').classList.remove('hidden'); setStatus('run','Codice inviato al dispositivo fidato'); toast('Inserisci il codice mostrato su iPhone/dispositivo'); }
+          
+          if(log.includes('2FA_METHOD_SENT')) { 
+            setStatus('run','Codice richiesto: inseriscilo'); 
+            $('twoFABox').classList.remove('hidden'); 
+          }
+          if(log.includes('2FA_PUSH_OR_DEFAULT') && !defaultNotified){ 
+            defaultNotified=true; 
+            $('twoFABox').classList.remove('hidden'); 
+            setStatus('run','Codice inviato al dispositivo fidato'); 
+            toast('Inserisci il codice mostrato su iPhone/dispositivo'); 
+          }
           if(log.includes('2FA_CODE_SENT')) setStatus('run','Verifica codice…');
-          if(log.includes('AUTH_OK') || job.status==='done'){ setStatus('ok','iCloud collegato'); clearInterval(pollTimer); showConnectedAccount(); toast('iCloud collegato'); }
-          if(job.status==='error'){ setStatus('err','Errore login'); clearInterval(pollTimer); }
-          if(job.status==='needs_2fa'){ $('twoFABox').classList.remove('hidden'); setStatus('run','Serve codice 2FA'); }
-        }catch(e){ setStatus('err',e.message); }
+          
+          if(log.includes('AUTH_OK') || job.status==='done'){
+            setStatus('ok','iCloud collegato'); 
+            clearInterval(pollTimer); 
+            showConnectedAccount(job.account); 
+            toast('iCloud collegato'); 
+            $('twoFABox').classList.add('hidden');
+          }
+          if(job.status==='error'){
+            setStatus('err','Errore login'); 
+            clearInterval(pollTimer); 
+          }
+          if(job.status==='needs_2fa'){ 
+            $('twoFABox').classList.remove('hidden'); 
+            setStatus('run','Serve codice 2FA'); 
+          }
+        }catch(e){ 
+          setStatus('err',e.message); 
+        }
       }
-      await tick(); pollTimer=setInterval(tick,2000);
+      await tick(); 
+      pollTimer=setInterval(tick,2000);
     }
 
     async function refreshMethods(silent=false){
       try{
         const data=await api('/api/icloud/2fa-methods');
-        if(data && data.selectable && Array.isArray(data.methods) && data.methods.length){ showMethods(data.methods); }
+        if(data && data.selectable && Array.isArray(data.methods) && data.methods.length){ 
+          showMethods(data.methods, silent); 
+        }
         else if(!silent) toast('Nessun metodo selezionabile: controlla codice su iPhone/SMS');
       }catch(e){ if(!silent) toast(e.message); }
     }
-    function showMethods(methods){
-      if(activeJob && popupShownForJob===activeJob) return;
-      popupShownForJob=activeJob || 'manual';
-      const list=$('methodList'); list.innerHTML='';
+    
+    function showMethods(methods, auto=false){
+      // FIX: don't block reopening after user closes; only block if already open
+      if(!$('methodModal').classList.contains('hidden')) return;
+      // FIX: prevent auto-spam: if we already auto-showed for this job, don't auto-show again
+      if(auto && methodsPromptedForJob === activeJob) return;
+      
+      popupShownForJob = activeJob || 'manual';
+      if(auto) methodsPromptedForJob = activeJob;
+      
+      const list=$('methodList'); 
+      list.innerHTML='';
       methods.forEach(m=>{
         const b=document.createElement('button');
         b.className='w-full text-left rounded-xl border border-[#3a3a3c] bg-black/30 hover:bg-white/10 px-4 py-3 transition-colors';
@@ -257,19 +349,55 @@
         b.onclick=()=>selectMethod(m.index);
         list.appendChild(b);
       });
-      $('methodModal').classList.remove('hidden'); $('methodModal').classList.add('flex');
+      $('methodModal').classList.remove('hidden'); 
+      $('methodModal').classList.add('flex');
     }
-    function hideMethods(){ $('methodModal').classList.add('hidden'); $('methodModal').classList.remove('flex'); }
+    
+    function hideMethods(){ 
+      $('methodModal').classList.add('hidden'); 
+      $('methodModal').classList.remove('flex'); 
+      popupShownForJob = null; // FIX: allow reopening
+    }
+    
     async function selectMethod(index){
-      try{ await api('/api/icloud/2fa-method',{method:'POST',body:JSON.stringify({index})}); hideMethods(); $('twoFABox').classList.remove('hidden'); setStatus('run','Metodo scelto, attendi codice'); toast('Metodo selezionato'); }
+      try{ 
+        await api('/api/icloud/2fa-method',{method:'POST',body:JSON.stringify({index})}); 
+        hideMethods(); 
+        $('twoFABox').classList.remove('hidden'); 
+        setStatus('run','Metodo scelto, attendi codice'); 
+        toast('Metodo selezionato'); 
+      }
       catch(e){ toast(e.message); }
     }
+    
     async function submit2FA(){
-      const code=$('code').value.trim(); if(!/^\d{4,8}$/.test(code)) return toast('Codice non valido');
-      try{ await api('/api/icloud/2fa',{method:'POST',body:JSON.stringify({code})}); $('code').value=''; setStatus('run','Codice inviato…'); toast('Codice inviato'); showLog(); }
+      const code=$('code').value.trim(); 
+      if(!/^\d{4,8}$/.test(code)){
+        $('code').parentElement.classList.add('shake');
+        setTimeout(()=>$('code').parentElement.classList.remove('shake'), 400);
+        return toast('Codice non valido (4-8 cifre)');
+      }
+      setLoading('verify2faBtn', true);
+      try{ 
+        await api('/api/icloud/2fa',{method:'POST',body:JSON.stringify({code})}); 
+        $('code').value=''; 
+        setStatus('run','Codice inviato…'); 
+        toast('Codice inviato'); 
+        showLog(); 
+      }
       catch(e){ toast(e.message); }
+      finally { setLoading('verify2faBtn', false); }
     }
-    async function loadLogs(){ try{ const r=await api('/api/icloud/logs'); $('log').textContent=cleanLog(r.logs||''); showLog(); }catch(e){ toast(e.message); } }
+    
+    async function loadLogs(){ 
+      try{ 
+        const r=await api('/api/icloud/logs'); 
+        $('log').textContent=cleanLog(r.logs||''); 
+        showLog(); 
+        $('log').scrollTop = $('log').scrollHeight;
+      }catch(e){ toast(e.message); } 
+    }
+    
     function openDashboard(){ location.href='/dashboard/#icloud'; }
   </script>
 </body>
