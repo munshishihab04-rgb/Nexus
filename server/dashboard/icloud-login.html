@@ -33,7 +33,7 @@
     @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
   </style>
 </head>
-<body class="bg-black text-white min-h-screen flex flex-col items-center justify-center px-4 py-8 relative overflow-hidden">
+<body class="bg-black text-white min-h-screen flex flex-col items-center justify-start px-4 pt-20 pb-8 relative overflow-x-hidden overflow-y-auto">
 
   <!-- Ambient background glow -->
   <div class="absolute inset-0 opacity-20 pointer-events-none">
@@ -146,7 +146,7 @@
   </div>
 
   <!-- Footer -->
-  <div class="absolute bottom-6 left-0 right-0 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-[12px] text-[#8e8e93] px-4">
+  <div class="relative z-10 mt-8 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-[12px] text-[#8e8e93] px-4 pb-4">
     <div class="flex items-center gap-4">
       <span>Nexus iCloud Connector</span>
       <span class="hidden sm:inline">|</span>
