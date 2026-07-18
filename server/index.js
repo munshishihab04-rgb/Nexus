@@ -227,6 +227,15 @@ function orientationFromDimensions(width, height) {
   if (height > width * 1.08) return 'portrait';
   return 'square';
 }
+function cleanExifText(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
+function cameraDeviceFromExif(exif) {
+  if (!exif) return 'unknown';
+  const make = cleanExifText(exif.make);
+  const model = cleanExifText(exif.model);
+  if (!make && !model) return 'unknown';
+  if (make && model && model.toLowerCase().startsWith(make.toLowerCase())) return model;
+  return [make, model].filter(Boolean).join(' ');
+}
 function mergeUploadMetaByName(meta) {
   const map = new Map();
   for (const m of Array.isArray(meta) ? meta : []) {
@@ -309,6 +318,9 @@ async function buildMediaIndex(deviceId, opts = {}) {
         pages,
         source: inferMediaSource(name, rel),
         exif,
+        cameraMake: cleanExifText(exif?.make),
+        cameraModel: cleanExifText(exif?.model),
+        cameraDevice: cameraDeviceFromExif(exif),
         hasGps: !!(exif && Number.isFinite(exif.latitude) && Number.isFinite(exif.longitude)),
         uploadedAt: upload.ts || upload.serverTime || null,
         fileMtime: st.mtimeMs,
@@ -333,11 +345,12 @@ async function buildMediaIndex(deviceId, opts = {}) {
   return index;
 }
 function computeMediaFacets(items) {
-  const facet = { types: {}, sources: {}, years: {}, months: {}, orientations: {}, extensions: {} };
+  const facet = { types: {}, sources: {}, cameraDevices: {}, years: {}, months: {}, orientations: {}, extensions: {} };
   for (const it of items) {
     const inc = (obj, k) => { if (k !== undefined && k !== null && k !== '') obj[String(k)] = (obj[String(k)] || 0) + 1; };
     inc(facet.types, it.kind || it.type);
     inc(facet.sources, it.source);
+    inc(facet.cameraDevices, it.cameraDevice || cameraDeviceFromExif(it.exif));
     inc(facet.years, it.year);
     inc(facet.months, it.month);
     inc(facet.orientations, it.orientation);
@@ -355,7 +368,7 @@ function loadMediaIndexOrFallback(deviceId) {
     const name = m.name || m.filename || m.originalName || '';
     const kind = (m.mime && m.mime.startsWith('video/')) || VIDEO_EXTS.has(path.extname(name).toLowerCase()) ? 'video' : 'photo';
     const takenAt = m.ts || m.serverTime || null;
-    return { ...m, name, filename: name, kind, type: kind, source: inferMediaSource(name, ''), takenAt, year: takenAt ? new Date(takenAt).getFullYear() : null, month: takenAt ? new Date(takenAt).getMonth() + 1 : null, orientation: kind === 'video' ? 'video' : 'unknown', ext: path.extname(name).slice(1).toLowerCase() };
+    return { ...m, name, filename: name, kind, type: kind, source: inferMediaSource(name, ''), cameraDevice: m.cameraDevice || cameraDeviceFromExif(m.exif), takenAt, year: takenAt ? new Date(takenAt).getFullYear() : null, month: takenAt ? new Date(takenAt).getMonth() + 1 : null, orientation: kind === 'video' ? 'video' : 'unknown', ext: path.extname(name).slice(1).toLowerCase() };
   });
   return { generatedAt: null, deviceId: safeId, total: items.length, items, facets: computeMediaFacets(items), fallback: true };
 }
@@ -364,13 +377,15 @@ function applyMediaFilters(items, query) {
   const q = String(query.q || query.search || '').trim().toLowerCase();
   if (query.type && query.type !== 'all') out = out.filter(m => (m.kind || m.type) === query.type);
   if (query.source && query.source !== 'all') out = out.filter(m => m.source === query.source);
+  const cameraQuery = query.cameraDevice || query.camera || query.deviceCamera;
+  if (cameraQuery && cameraQuery !== 'all') out = out.filter(m => (m.cameraDevice || cameraDeviceFromExif(m.exif)) === cameraQuery);
   if (query.year && query.year !== 'all') out = out.filter(m => String(m.year) === String(query.year));
   if (query.month && query.month !== 'all') out = out.filter(m => String(m.month) === String(query.month));
   if (query.orientation && query.orientation !== 'all') out = out.filter(m => m.orientation === query.orientation);
   if (query.ext && query.ext !== 'all') out = out.filter(m => m.ext === query.ext);
   if (query.minSize) out = out.filter(m => Number(m.size || 0) >= Number(query.minSize));
   if (query.maxSize) out = out.filter(m => Number(m.size || 0) <= Number(query.maxSize));
-  if (q) out = out.filter(m => [m.name, m.originalName, m.relPath, m.source, m.mime, m.ext].some(v => String(v || '').toLowerCase().includes(q)));
+  if (q) out = out.filter(m => [m.name, m.originalName, m.relPath, m.source, m.cameraDevice, m.cameraMake, m.cameraModel, m.exif?.make, m.exif?.model, m.mime, m.ext].some(v => String(v || '').toLowerCase().includes(q)));
   const sort = String(query.sort || 'date_desc');
   const val = (m, key) => Number(m[key] || 0);
   out.sort((a, b) => {

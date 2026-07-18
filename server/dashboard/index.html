@@ -651,6 +651,7 @@ html, body { height: 100%; background: var(--bg-base); color: var(--text-primary
         <input id="gallery-search" placeholder="Cerca filename/source..." oninput="debouncedGalleryReload()">
         <select id="gallery-type" onchange="loadGallery(true)"><option value="all">Tutti i media</option><option value="photo">Foto</option><option value="video">Video</option></select>
         <select id="gallery-source" onchange="loadGallery(true)"><option value="all">Tutte le sorgenti</option></select>
+        <select id="gallery-camera" onchange="loadGallery(true)"><option value="all">Tutti dispositivi scatto</option></select>
         <select id="gallery-year" onchange="loadGallery(true)"><option value="all">Tutti gli anni</option></select>
         <select id="gallery-month" onchange="loadGallery(true)"><option value="all">Tutti i mesi</option></select>
         <select id="gallery-orientation" onchange="loadGallery(true)"><option value="all">Tutti orientamenti</option><option value="portrait">Verticali</option><option value="landscape">Orizzontali</option><option value="square">Quadrate</option><option value="video">Video</option><option value="unknown">Sconosciute</option></select>
@@ -1384,7 +1385,7 @@ function filterContacts() { renderContacts(); }
 // ─── GALLERY ─────────────────────────────────────────────────────────────────
 function galleryQuery() {
   const params = new URLSearchParams({ page: galleryPage, limit: '60' });
-  const ids = { type:'gallery-type', source:'gallery-source', year:'gallery-year', month:'gallery-month', orientation:'gallery-orientation', sort:'gallery-sort' };
+  const ids = { type:'gallery-type', source:'gallery-source', cameraDevice:'gallery-camera', year:'gallery-year', month:'gallery-month', orientation:'gallery-orientation', sort:'gallery-sort' };
   Object.entries(ids).forEach(([key,id]) => { const v = document.getElementById(id)?.value || 'all'; if (v && v !== 'all') params.set(key, v); });
   const q = (document.getElementById('gallery-search')?.value || '').trim();
   if (q) params.set('q', q);
@@ -1403,6 +1404,7 @@ function updateGalleryFacets(facets, indexedAt, total) {
   galleryFacets = facets;
   const sorted = obj => Object.entries(obj || {}).sort((a,b) => String(b[0]).localeCompare(String(a[0])));
   fillGallerySelect('gallery-source', sorted(facets.sources), (k,v)=>`${k} (${v})`);
+  fillGallerySelect('gallery-camera', Object.entries(facets.cameraDevices || {}).sort((a,b)=>b[1]-a[1]), (k,v)=>`${k} (${v})`);
   fillGallerySelect('gallery-year', sorted(facets.years), (k,v)=>`${k} (${v})`);
   fillGallerySelect('gallery-month', Object.entries(facets.months || {}).sort((a,b)=>Number(a[0])-Number(b[0])), (k,v)=>`${String(k).padStart(2,'0')} (${v})`);
   const summary = document.getElementById('gallery-meta-summary');
@@ -1462,11 +1464,12 @@ function renderGallery() {
     const size = fmtBytes(f.size);
     const dims = f.width && f.height ? `${f.width}×${f.height}` : (f.orientation || '');
     const source = f.source || '';
+    const camera = f.cameraDevice && f.cameraDevice !== 'unknown' ? f.cameraDevice : '';
     return `<div class="gallery-thumb" onclick="openLightbox(${i})">
       <img src="${thumbUrl}" alt="${escHtml(name)}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22><rect fill=%22%231a2235%22 width=%2260%22 height=%2260%22/><text x=%2230%22 y=%2235%22 text-anchor=%22middle%22 fill=%22%2394a3b8%22 font-size=%2218%22>${isVid?'🎬':'🖼️'}</text></svg>'">
       ${source ? `<div class="source-badge">${escHtml(source)}</div>` : ''}
       ${isVid ? '<div class="video-badge">▶ Video</div>' : ''}
-      <div class="meta-badge"><span>${escHtml(dims || '')}</span><span>${size}</span></div>
+      <div class="meta-badge"><span>${escHtml(camera || dims || '')}</span><span>${size}</span></div>
     </div>`;
   }).join('');
   document.getElementById('gallery-loadmore').style.display = galleryHasMore ? '' : 'none';
