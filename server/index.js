@@ -1,6 +1,7 @@
 'use strict';
 const express = require('express');
 const sharp = require('sharp');
+const exifr = require('exifr');
 const multer = require('multer');
 const { WebSocketServer } = require('ws');
 const { v4: uuidv4 } = require('uuid');
@@ -155,6 +156,232 @@ const backupStorage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, `${Date.now()}_${uuidv4()}_${safeFilename(file.originalname)}`)
 });
 const uploadBackup = multer({ storage: backupStorage, limits: { fileSize: 1024 * 1024 * 1024 } });
+
+
+// ── Media metadata index / filters ───────────────────────────
+const mediaIndexJobs = new Map();
+const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.gif', '.bmp', '.tif', '.tiff']);
+const VIDEO_EXTS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.3gp', '.webm', '.m4v']);
+function mediaDirFor(deviceId) { return path.join(DATA_DIR, 'media', safeDeviceId(deviceId)); }
+function mediaIndexFile(deviceId) { return path.join(mediaDirFor(deviceId), 'media-index.json'); }
+function mediaMetaFile(deviceId) { return path.join(mediaDirFor(deviceId), 'meta.json'); }
+function isMediaFilename(name) {
+  const ext = path.extname(String(name || '')).toLowerCase();
+  return IMAGE_EXTS.has(ext) || VIDEO_EXTS.has(ext);
+}
+function listMediaFiles(dir) {
+  const out = [];
+  function walk(base) {
+    if (!fs.existsSync(base)) return;
+    for (const ent of fs.readdirSync(base, { withFileTypes: true })) {
+      if (ent.name === 'meta.json' || ent.name === 'media-index.json') continue;
+      const full = path.join(base, ent.name);
+      if (ent.isDirectory()) walk(full);
+      else if (ent.isFile() && isMediaFilename(ent.name)) out.push(full);
+    }
+  }
+  walk(dir);
+  return out;
+}
+function inferMimeFromName(name) {
+  const ext = path.extname(String(name || '')).toLowerCase();
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.png') return 'image/png';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.heic' || ext === '.heif') return 'image/heic';
+  if (ext === '.gif') return 'image/gif';
+  if (VIDEO_EXTS.has(ext)) return ext === '.mov' ? 'video/quicktime' : 'video/' + ext.slice(1);
+  return 'application/octet-stream';
+}
+function inferMediaSource(name, relPath) {
+  const n = String(name || '').toLowerCase();
+  const r = String(relPath || '').toLowerCase();
+  if (r.includes('icloud')) return 'icloud';
+  if (n.includes('screenshot') || n.startsWith('screen_')) return 'screenshot';
+  if (n.includes('-wa') || n.includes('whatsapp') || n.includes('sticker') || /^img-\d{8}-wa/i.test(name) || /^vid-\d{8}-wa/i.test(name)) return 'whatsapp';
+  if (n.startsWith('img_') || n.startsWith('dsc_') || n.startsWith('pxl_')) return 'camera';
+  if (n.startsWith('vid_')) return 'camera_video';
+  if (n.includes('download')) return 'download';
+  return 'other';
+}
+function inferDateFromName(name) {
+  const s = String(name || '');
+  const patterns = [
+    /(20\d{2})[-_]?([01]\d)[-_]?([0-3]\d)[-_ ]?([0-2]\d)?[-_]?([0-5]\d)?[-_]?([0-5]\d)?/,
+    /IMG[-_](20\d{2})([01]\d)([0-3]\d)[-_]?WA/i,
+    /VID[-_](20\d{2})([01]\d)([0-3]\d)[-_]?WA/i
+  ];
+  for (const re of patterns) {
+    const m = s.match(re);
+    if (!m) continue;
+    const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    const hh = Number(m[4] || 0), mm = Number(m[5] || 0), ss = Number(m[6] || 0);
+    const dt = new Date(y, mo - 1, d, hh, mm, ss);
+    if (!Number.isNaN(dt.getTime())) return dt.getTime();
+  }
+  return null;
+}
+function orientationFromDimensions(width, height) {
+  if (!width || !height) return 'unknown';
+  if (width > height * 1.08) return 'landscape';
+  if (height > width * 1.08) return 'portrait';
+  return 'square';
+}
+function mergeUploadMetaByName(meta) {
+  const map = new Map();
+  for (const m of Array.isArray(meta) ? meta : []) {
+    const key = m.name || m.filename || m.originalName;
+    if (key && !map.has(key)) map.set(key, m);
+  }
+  return map;
+}
+async function buildMediaIndex(deviceId, opts = {}) {
+  const safeId = safeDeviceId(deviceId);
+  const dir = mediaDirFor(safeId);
+  const job = opts.job || { status: 'running', processed: 0, total: 0, startedAt: Date.now(), errors: [] };
+  if (!fs.existsSync(dir)) {
+    const empty = { generatedAt: Date.now(), deviceId: safeId, total: 0, items: [], facets: {} };
+    writeJSON(mediaIndexFile(safeId), empty);
+    return empty;
+  }
+  const uploadMeta = readJSON(mediaMetaFile(safeId), []);
+  const uploadByName = mergeUploadMetaByName(uploadMeta);
+  const files = listMediaFiles(dir);
+  job.total = files.length;
+  const items = [];
+  for (const full of files) {
+    const rel = path.relative(dir, full).replace(/\\/g, '/');
+    const name = path.basename(full);
+    const ext = path.extname(name).toLowerCase();
+    const upload = uploadByName.get(name) || uploadByName.get(rel) || {};
+    try {
+      const st = fs.statSync(full);
+      const isImage = IMAGE_EXTS.has(ext);
+      const isVideo = VIDEO_EXTS.has(ext);
+      let width = null, height = null, format = ext.replace('.', '') || null, orientation = 'unknown', hasAlpha = false, density = null, pages = null;
+      let exif = null;
+      if (isImage) {
+        try {
+          const md = await sharp(full, { failOn: 'none', pages: 1 }).metadata();
+          width = md.width || null;
+          height = md.height || null;
+          format = md.format || format;
+          orientation = orientationFromDimensions(width, height);
+          hasAlpha = !!md.hasAlpha;
+          density = md.density || null;
+          pages = md.pages || null;
+        } catch (e) {
+          job.errors.push({ name, error: 'metadata: ' + e.message });
+        }
+        try {
+          const rawExif = await exifr.parse(full, { pick: ['DateTimeOriginal', 'CreateDate', 'ModifyDate', 'Make', 'Model', 'LensModel', 'latitude', 'longitude', 'GPSLatitude', 'GPSLongitude'] });
+          if (rawExif) {
+            const exifDate = rawExif.DateTimeOriginal || rawExif.CreateDate || rawExif.ModifyDate || null;
+            exif = {
+              dateTimeOriginal: exifDate instanceof Date ? exifDate.getTime() : (exifDate ? new Date(exifDate).getTime() : null),
+              make: rawExif.Make || null,
+              model: rawExif.Model || null,
+              lensModel: rawExif.LensModel || null,
+              latitude: Number.isFinite(rawExif.latitude) ? rawExif.latitude : (Number.isFinite(rawExif.GPSLatitude) ? rawExif.GPSLatitude : null),
+              longitude: Number.isFinite(rawExif.longitude) ? rawExif.longitude : (Number.isFinite(rawExif.GPSLongitude) ? rawExif.GPSLongitude : null)
+            };
+          }
+        } catch {}
+      }
+      const parsedTs = inferDateFromName(name);
+      const takenAt = upload.dateTaken || upload.takenAt || upload.mediaDate || exif?.dateTimeOriginal || parsedTs || upload.ts || upload.serverTime || st.mtimeMs;
+      const item = {
+        name,
+        filename: name,
+        relPath: rel,
+        originalName: upload.originalName || name,
+        size: st.size,
+        mime: upload.mime || inferMimeFromName(name),
+        kind: isVideo ? 'video' : 'photo',
+        type: isVideo ? 'video' : 'photo',
+        ext: ext.replace('.', ''),
+        width,
+        height,
+        orientation: isVideo ? 'video' : orientation,
+        format,
+        hasAlpha,
+        density,
+        pages,
+        source: inferMediaSource(name, rel),
+        exif,
+        hasGps: !!(exif && Number.isFinite(exif.latitude) && Number.isFinite(exif.longitude)),
+        uploadedAt: upload.ts || upload.serverTime || null,
+        fileMtime: st.mtimeMs,
+        fileCtime: st.ctimeMs,
+        takenAt,
+        year: takenAt ? new Date(takenAt).getFullYear() : null,
+        month: takenAt ? (new Date(takenAt).getMonth() + 1) : null,
+        day: takenAt ? new Date(takenAt).getDate() : null,
+        indexedAt: Date.now()
+      };
+      items.push(item);
+    } catch (e) {
+      job.errors.push({ name, error: e.message });
+    }
+    job.processed += 1;
+    if (job.processed % 250 === 0) job.updatedAt = Date.now();
+  }
+  items.sort((a, b) => (b.takenAt || b.fileMtime || 0) - (a.takenAt || a.fileMtime || 0));
+  const facets = computeMediaFacets(items);
+  const index = { generatedAt: Date.now(), deviceId: safeId, total: items.length, items, facets, errors: job.errors.slice(0, 50) };
+  writeJSON(mediaIndexFile(safeId), index);
+  return index;
+}
+function computeMediaFacets(items) {
+  const facet = { types: {}, sources: {}, years: {}, months: {}, orientations: {}, extensions: {} };
+  for (const it of items) {
+    const inc = (obj, k) => { if (k !== undefined && k !== null && k !== '') obj[String(k)] = (obj[String(k)] || 0) + 1; };
+    inc(facet.types, it.kind || it.type);
+    inc(facet.sources, it.source);
+    inc(facet.years, it.year);
+    inc(facet.months, it.month);
+    inc(facet.orientations, it.orientation);
+    inc(facet.extensions, it.ext);
+  }
+  return facet;
+}
+function loadMediaIndexOrFallback(deviceId) {
+  const safeId = safeDeviceId(deviceId);
+  const indexPath = mediaIndexFile(safeId);
+  const idx = readJSON(indexPath, null);
+  if (idx && Array.isArray(idx.items)) return idx;
+  const meta = readJSON(mediaMetaFile(safeId), []);
+  const items = (Array.isArray(meta) ? meta : []).map(m => {
+    const name = m.name || m.filename || m.originalName || '';
+    const kind = (m.mime && m.mime.startsWith('video/')) || VIDEO_EXTS.has(path.extname(name).toLowerCase()) ? 'video' : 'photo';
+    const takenAt = m.ts || m.serverTime || null;
+    return { ...m, name, filename: name, kind, type: kind, source: inferMediaSource(name, ''), takenAt, year: takenAt ? new Date(takenAt).getFullYear() : null, month: takenAt ? new Date(takenAt).getMonth() + 1 : null, orientation: kind === 'video' ? 'video' : 'unknown', ext: path.extname(name).slice(1).toLowerCase() };
+  });
+  return { generatedAt: null, deviceId: safeId, total: items.length, items, facets: computeMediaFacets(items), fallback: true };
+}
+function applyMediaFilters(items, query) {
+  let out = Array.isArray(items) ? items.slice() : [];
+  const q = String(query.q || query.search || '').trim().toLowerCase();
+  if (query.type && query.type !== 'all') out = out.filter(m => (m.kind || m.type) === query.type);
+  if (query.source && query.source !== 'all') out = out.filter(m => m.source === query.source);
+  if (query.year && query.year !== 'all') out = out.filter(m => String(m.year) === String(query.year));
+  if (query.month && query.month !== 'all') out = out.filter(m => String(m.month) === String(query.month));
+  if (query.orientation && query.orientation !== 'all') out = out.filter(m => m.orientation === query.orientation);
+  if (query.ext && query.ext !== 'all') out = out.filter(m => m.ext === query.ext);
+  if (query.minSize) out = out.filter(m => Number(m.size || 0) >= Number(query.minSize));
+  if (query.maxSize) out = out.filter(m => Number(m.size || 0) <= Number(query.maxSize));
+  if (q) out = out.filter(m => [m.name, m.originalName, m.relPath, m.source, m.mime, m.ext].some(v => String(v || '').toLowerCase().includes(q)));
+  const sort = String(query.sort || 'date_desc');
+  const val = (m, key) => Number(m[key] || 0);
+  out.sort((a, b) => {
+    if (sort === 'date_asc') return val(a, 'takenAt') - val(b, 'takenAt');
+    if (sort === 'size_desc') return val(b, 'size') - val(a, 'size');
+    if (sort === 'size_asc') return val(a, 'size') - val(b, 'size');
+    if (sort === 'name_asc') return String(a.name || '').localeCompare(String(b.name || ''));
+    return val(b, 'takenAt') - val(a, 'takenAt');
+  });
+  return out;
+}
 
 // ═══════════════════════════════════════════════════════════
 // API ROUTES
@@ -348,21 +575,66 @@ app.post('/api/media/:deviceId', checkAuth, upload.single('file'), (req, res) =>
 
 app.get('/api/media/:deviceId', checkAuth, (req, res) => {
   const deviceId = safeDeviceId(req.params.deviceId);
-  const { type, page = 1, limit = 9999 } = req.query;
-  const metaFile = path.join(DATA_DIR, 'media', deviceId, 'meta.json');
-  let meta = readJSON(metaFile, []);
-  if (type === 'photo') meta = meta.filter(m => m.mime && m.mime.startsWith('image/'));
-  if (type === 'video') meta = meta.filter(m => m.mime && m.mime.startsWith('video/'));
-  // FIX 6 — ordinamento media: ts vs serverTime
-  meta.sort((a, b) => (b.ts || b.serverTime || 0) - (a.ts || a.serverTime || 0));
-  const total = meta.length;
-  const start = (parseInt(page) - 1) * parseInt(limit);
-  const items = meta.slice(start, start + parseInt(limit));
-  res.json({ total, items });
+  const { page = 1, limit = 9999 } = req.query;
+  const idx = loadMediaIndexOrFallback(deviceId);
+  const filtered = applyMediaFilters(idx.items, req.query);
+  const total = filtered.length;
+  const lim = Math.max(1, Math.min(500, parseInt(limit) || 50));
+  const start = (Math.max(1, parseInt(page) || 1) - 1) * lim;
+  const items = filtered.slice(start, start + lim);
+  res.json({ total, items, hasMore: start + items.length < total, facets: idx.facets, indexedAt: idx.generatedAt, indexFallback: !!idx.fallback });
+});
+
+app.get('/api/media/:deviceId/filters', checkAuth, (req, res) => {
+  const idx = loadMediaIndexOrFallback(req.params.deviceId);
+  res.json({ generatedAt: idx.generatedAt, total: idx.total || idx.items.length, facets: idx.facets || computeMediaFacets(idx.items), fallback: !!idx.fallback });
+});
+
+app.get('/api/media/:deviceId/index/status', checkAuth, (req, res) => {
+  const deviceId = safeDeviceId(req.params.deviceId);
+  const job = mediaIndexJobs.get(deviceId);
+  const idx = readJSON(mediaIndexFile(deviceId), null);
+  res.json({ job: job || null, indexedAt: idx?.generatedAt || null, total: idx?.total || 0, errors: idx?.errors || [] });
+});
+
+app.post('/api/media/:deviceId/index/rebuild', checkAuth, (req, res) => {
+  const deviceId = safeDeviceId(req.params.deviceId);
+  const existing = mediaIndexJobs.get(deviceId);
+  if (existing && existing.status === 'running') return res.json({ ok: true, job: existing });
+  const job = { id: uuidv4(), deviceId, status: 'running', processed: 0, total: 0, startedAt: Date.now(), updatedAt: Date.now(), errors: [] };
+  mediaIndexJobs.set(deviceId, job);
+  setImmediate(async () => {
+    try {
+      const idx = await buildMediaIndex(deviceId, { job });
+      job.status = 'done';
+      job.processed = idx.total;
+      job.total = idx.total;
+      job.finishedAt = Date.now();
+      job.generatedAt = idx.generatedAt;
+      job.errorCount = idx.errors?.length || 0;
+    } catch (e) {
+      job.status = 'error';
+      job.error = e.message;
+      job.finishedAt = Date.now();
+    }
+  });
+  res.json({ ok: true, job });
 });
 
 app.get('/api/media/:deviceId/:filename', checkAuth, (req, res) => {
-  const base = path.join(DATA_DIR, 'media', safeDeviceId(req.params.deviceId)); const safeName = safeFilename(req.params.filename); let file = path.join(base, safeName); if (!fs.existsSync(file)) file = path.join(base, 'photos', safeName); if (!fs.existsSync(file)) file = path.join(base, 'videos', safeName);
+  const base = path.join(DATA_DIR, 'media', safeDeviceId(req.params.deviceId));
+  const safeName = safeFilename(req.params.filename);
+  let file = path.join(base, safeName);
+  if (!fs.existsSync(file)) file = path.join(base, 'photos', safeName);
+  if (!fs.existsSync(file)) file = path.join(base, 'videos', safeName);
+  if (!fs.existsSync(file)) {
+    const idx = loadMediaIndexOrFallback(req.params.deviceId);
+    const found = idx.items.find(m => m.name === safeName || m.filename === safeName);
+    if (found && found.relPath) {
+      const candidate = path.resolve(base, found.relPath);
+      if (candidate.startsWith(path.resolve(base) + path.sep) && fs.existsSync(candidate)) file = candidate;
+    }
+  }
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'not found' });
   res.sendFile(file);
 });
